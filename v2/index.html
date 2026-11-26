@@ -819,6 +819,22 @@ html.app .lock .lhint { white-space: nowrap; }
 .gmas img { height: 46px; width: auto; }
 .gmas figcaption { font-size: 11.5px; font-weight: 600; line-height: 1.35; color: var(--shell-fg); }
 .gmas small { display: block; font-weight: 400; color: var(--shell-muted); font-size: 10.5px; }
+/* ---------- v2b: D-day · 다가오는 약속 · 알림 기준 토글 ---------- */
+.dd { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 6px; font-size: 12px; font-weight: 700; background: var(--soft); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dd.soon { background: var(--pub-bg); color: var(--link); }
+.dd.hot { background: var(--navy); color: #fff; }
+.ddtags { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.card.upnext { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; }
+.card.upnext .ms { width: 50px; flex: 0 0 auto; }
+.card.upnext .grow { min-width: 0; }
+.card.upnext small { display: block; font-size: 12px; font-weight: 600; color: var(--link); }
+.card.upnext b { display: block; font-size: 14px; font-weight: 600; margin-top: 1px; }
+.card.upnext .small { display: block; margin-top: 1px; }
+.sw { flex: 0 0 auto; width: 44px; height: 26px; border-radius: 13px; background: #cbd6e4; position: relative; transition: background .2s; }
+.sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .2); transition: transform .2s; }
+.sw.on { background: var(--navy); }
+.sw.on::after { transform: translateX(18px); }
+.list.prefs .small { display: inline; }
 </style>
 <div class="topbar">
   <div class="ptools" id="ptools">
@@ -1361,7 +1377,9 @@ function boot() {
 				n: false
 			},
 			deep: null,
-			launch: false
+			launch: false,
+			prefs: {},
+			reminded: {}
 		};
 	}
 	function isOp() {
@@ -1445,6 +1463,68 @@ function boot() {
 			at: fmt(now()),
 			read: false
 		});
+	}
+	/* v2b: 알림 받는 기준 · D-day · 다가오는 약속 */
+	function prefOf(uid) {
+		return S.prefs[uid] || (S.prefs[uid] = { newpost: true, remind: true });
+	}
+	function dday(t) {
+		var a = new Date(now()), b = new Date(t);
+		a.setHours(0, 0, 0, 0);
+		b.setHours(0, 0, 0, 0);
+		return Math.round((b - a) / DAY);
+	}
+	function DD(t, label) {
+		var k = dday(t), txt = k < 0 ? "지남" : k === 0 ? "D-DAY" : "D-" + k;
+		return "<span class=\"dd" + (k <= 1 ? " hot" : k <= 3 ? " soon" : "") + "\">" + (label ? esc(label) + " " : "") + txt + "</span>";
+	}
+	function dealDue(r) {
+		if (r.status !== "수락") return null;
+		var ap = r.appt;
+		return ap && ap.ok ? { t: ap.dt, label: "약속", place: ap.place } : { t: r.acceptedAt + 7 * DAY, label: "확정 기한" };
+	}
+	function DDR(r) {
+		var d = dealDue(r);
+		return d ? DD(d.t, d.label) : "";
+	}
+	function UPCOMING(where) {
+		if (SKIN === "0" || !S.me || isOp()) return "";
+		var me = S.me.id, list = S.reqs.map(function(r) {
+			var p = post(r.post);
+			return p && (p.owner === me || r.buyer === me) ? { r, p, d: dealDue(r) } : null;
+		}).filter(function(x) {
+			return x && x.d;
+		}).sort(function(a, b) {
+			return a.d.t - b.d.t;
+		});
+		if (!list.length) return "";
+		var x = list[0], other = x.p.owner === me ? "구매자 " + nick(x.r.buyer) : "판매자 " + nick(x.p.owner), appt = x.d.label === "약속";
+		return "<button type=\"button\" class=\"card upnext\" data-act=\"go\" data-to=\"deal\" data-id=\"" + x.r.id + "\">" + (where === "deals" ? MS(appt ? "pose-heart" : "face-surprised") : "") + "<span class=\"grow\"><small>" + (appt ? "다가오는 약속" : "약속 확정 기한") + (list.length > 1 ? " · 외 " + (list.length - 1) + "건" : "") + "</small><b>" + esc(x.p.title) + "</b><span class=\"small\">" + esc(other) + " · " + fmt(x.d.t) + (x.d.place ? " · " + esc(x.d.place) : "") + "</span></span>" + DD(x.d.t) + "</button>";
+	}
+	function PREF(k, label, sub) {
+		var on = prefOf(S.me.id)[k];
+		return "<button type=\"button\" data-act=\"pref\" data-k=\"" + k + "\" role=\"switch\" aria-checked=\"" + on + "\"><span class=\"grow\" style=\"min-width:0\"><span>" + esc(label) + "</span><br><span class=\"small\">" + esc(sub) + "</span></span><span class=\"sw" + (on ? " on" : "") + "\" aria-hidden=\"true\"></span></button>";
+	}
+	function remindCheck() {
+		if (document.body.classList.contains("demo")) return;
+		var changed = false;
+		S.reqs.forEach(function(r) {
+			var d = dealDue(r), p = d && post(r.post);
+			if (!p) return;
+			var left = d.t - now();
+			if (left <= 0 || left > DAY) return;
+			[p.owner, r.buyer].forEach(function(u) {
+				var key = r.id + ":" + d.label + ":" + u;
+				if (S.reminded[key] || !prefOf(u).remind) return;
+				S.reminded[key] = true;
+				changed = true;
+				notify(u, d.label === "약속" ? (dday(d.t) === 0 ? "오늘" : "내일") + " 약속: ‘" + p.title + "’ " + fmt(d.t) + " · " + d.place : "‘" + p.title + "’ 약속 확정 기한이 " + fmt(d.t) + "까지입니다. 하루 남았습니다.", d.label === "약속" ? "약속 리마인드" : "기한 리마인드");
+			});
+		});
+		if (changed) {
+			S.keep = true;
+			render();
+		}
 	}
 	function unread() {
 		return S.me ? S.notifs.filter(function(n) {
@@ -1959,6 +2039,7 @@ function boot() {
 		r: function() {
 			var h = (SKIN !== "0" && S.me ? HELLO() : "") + searchBar();
 			if (!S.me) return h +"<p class=\"small\">게시글은 로그인하지 않아도 볼 수 있습니다.</p>" + B("로그인", "root", "line full", " data-to=\"login\"");
+			h += UPCOMING("home");
 			var mine = myCodes();
 			if (!mine.length) return h + H1("내 과목 자료") + "<div class=\"empty\">" + MS("pose-read") + "<b>등록한 수강 과목이 없습니다</b><p class=\"small\">수강 과목을 등록하면 검색하지 않아도 내 과목의 교재·매물·정리본을 한 화면에서 볼 수 있습니다.</p>" + B("수강 과목 등록하기", "root", "full", " data-to=\"courses\"") + "</div>";
 			var withSale = mine.filter(function(c) {
@@ -2305,6 +2386,7 @@ function boot() {
 				return b.id - a.id;
 			}), n = unread();
 			var h = H1("내 거래") + "<button type=\"button\" class=\"card\" data-act=\"go\" data-to=\"notifs\"><span class=\"line2\"><span style=\"font-size:14px;font-weight:600\">알림</span>" + (n ? TAG("새 알림 " + n, "red") : "<span class=\"small\">새 알림 없음</span>") + "</span></button>";
+			h += UPCOMING("deals");
 			if (!mine.length && !asked.length) return h + "<div class=\"empty\">" + MS("pose-polite") + "<b>등록하거나 신청한 거래가 없습니다</b><p class=\"small\">교재를 올리거나 내 과목 자료에서 매물을 찾아 신청해 보세요.</p><div class=\"btnrow split\">" + B("올리기", "root", "", " data-to=\"upload\"") + B("자료 찾기", "root", "line", " data-to=\"home\"") + "</div></div>";
 			h += "<p class=\"sec\">내가 올린 게시글</p>";
 			if (!mine.length) h += "<p class=\"small\">올린 게시글이 없습니다.</p>";
@@ -2317,7 +2399,7 @@ function boot() {
 					S.reqs.filter(function(r) {
 						return r.post === p.id && (r.status === "신청" || r.status === "수락");
 					}).forEach(function(r) {
-						h += "<div class=\"rowline\"><span>" + esc(nick(r.buyer)) + " · " + esc(r.status === "수락" ? fmt(r.acceptedAt) + " 수락" : r.at) + "</span>" + stTag(r.status) + "</div>";
+						h += "<div class=\"rowline\"><span>" + esc(nick(r.buyer)) + " · " + esc(r.status === "수락" ? fmt(r.acceptedAt) + " 수락" : r.at) + "</span><span class=\"ddtags\">" + (r.status === "수락" ? DDR(r) : "") + stTag(r.status) + "</span></div>";
 						h += r.status === "신청" ? "<div class=\"btnrow\">" + B("수락", "accept", "sm", " data-id=\"" + r.id + "\"") + B("거절", "reject", "quiet sm", " data-id=\"" + r.id + "\"") + "</div>" : "<div class=\"btnrow\">" + B(r.appt ? "약속 보기" : "약속 정하기", "go", "sm", " data-to=\"deal\" data-id=\"" + r.id + "\"") + "</div>";
 					});
 					if (p.expNote) h += "<div class=\"note warn\">수락 후 7일 안에 약속이 확정되지 않아 대기중으로 돌아갔습니다.</div>";
@@ -2329,7 +2411,7 @@ function boot() {
 			if (!asked.length) h += "<p class=\"small\">신청한 거래가 없습니다.</p>";
 			asked.forEach(function(r) {
 				var p = post(r.post);
-				h += "<div class=\"card\"><div class=\"line2\"><button type=\"button\" class=\"ctitle\" style=\"text-align:left;min-width:0\" data-act=\"open\" data-id=\"" + p.id + "\">" + esc(p.title) + "</button>" + stTag(r.status) + "</div><p class=\"small\">판매자 " + esc(nick(p.owner)) + " · " + esc(r.status === "수락" ? fmt(r.acceptedAt) + " 수락" : r.at + " 신청") + "</p>";
+				h += "<div class=\"card\"><div class=\"line2\"><button type=\"button\" class=\"ctitle\" style=\"text-align:left;min-width:0\" data-act=\"open\" data-id=\"" + p.id + "\">" + esc(p.title) + "</button><span class=\"ddtags\">" + (r.status === "수락" ? DDR(r) : "") + stTag(r.status) + "</span></div><p class=\"small\">판매자 " + esc(nick(p.owner)) + " · " + esc(r.status === "수락" ? fmt(r.acceptedAt) + " 수락" : r.at + " 신청") + "</p>";
 				var rs = {
 					"신청": 2,
 					"수락": 3,
@@ -2353,7 +2435,7 @@ function boot() {
 			var r = find(S.reqs, function(x) {
 				return x.id === a.id;
 			}), p = post(r.post), seller = p.owner === S.me.id, role = seller ? "seller" : "buyer", ap = r.appt;
-			var h = H1(ap && ap.ok ? "약속" : "약속 정하기", ap && ap.ok ? TAG("확정", "ok") : "") + "<div class=\"card\"><span style=\"font-size:14px;font-weight:600\">" + esc(p.title) + " · " + (seller ? "구매자 " + esc(nick(r.buyer)) : "판매자 " + esc(nick(p.owner))) + "</span><p class=\"small\">" + fmt(r.acceptedAt) + " 수락</p></div>";
+			var h = H1(ap && ap.ok ? "약속" : "약속 정하기", "<span class=\"ddtags\">" + DDR(r) + (ap && ap.ok ? TAG("확정", "ok") : "") + "</span>") + "<div class=\"card\"><span style=\"font-size:14px;font-weight:600\">" + esc(p.title) + " · " + (seller ? "구매자 " + esc(nick(r.buyer)) : "판매자 " + esc(nick(p.owner))) + "</span><p class=\"small\">" + fmt(r.acceptedAt) + " 수락</p></div>";
 			if (SKIN !== "0" && (r.status === "수락" || r.status === "완료")) h += STEPPER(r.status === "완료" ? 4 : 3, r.status === "완료" ? "거래가 끝났습니다." : !ap ? "약속 제안 전 · " + fmt(r.acceptedAt + 7 * DAY) + "까지 확정해야 합니다." : ap.ok ? "약속 확정 · " + fmt(ap.dt) + " · " + ap.place : "상대의 동의를 기다리고 있습니다.");
 			if (r.status !== "수락") return h + "<div class=\"note info\">이 거래는 " + esc(r.status) + " 상태입니다.</div>" + B("내 거래로", "root", "line full", " data-to=\"deals\"");
 			if (!ap || a.edit) return h + FORM("deal", F("deal", "dt", "일시 *", { type: "datetime-local" }) + F("deal", "place", "장소 *") + "<div class=\"note warn\">수락 후 7일 안(" + fmt(r.acceptedAt + 7 * DAY) + "까지)에 약속이 확정되지 않으면 매물은 대기중으로 돌아갑니다.</div><p class=\"small\">지난 일시나 빈 장소로는 확정되지 않습니다.</p>" + SUBMIT("약속 제안하기"), "tight") + "<div class=\"btnrow\">" + B("거래 취소", "ask-cancel", "quiet sm", " data-id=\"" + r.id + "\"") + "</div>";
@@ -2371,12 +2453,13 @@ function boot() {
 			var list = S.notifs.filter(function(n) {
 				return n.to === S.me.id;
 			}), n = unread();
-			var h = H1("알림", n ? TAG("새 알림 " + n, "red") : "");
-			if (!list.length) h += "<p class=\"small\">받은 알림이 없습니다.</p>";
+			var h = H1("알림", n ? "<span class=\"ddtags\">" + TAG("새 알림 " + n, "red") + B("모두 읽음", "read-all", "quiet sm") + "</span>" : "");
+			if (!list.length) h += "<div class=\"empty\">" + MS("face-default") + "<b>받은 알림이 없습니다</b><p class=\"small\">거래가 진행되거나 내 과목에 새 매물이 올라오면 여기에 모입니다.</p></div>";
 			else h += "<div class=\"list\">" + list.map(function(x) {
 				return "<button type=\"button\" data-act=\"read\" data-id=\"" + x.id + "\"><span style=\"min-width:0\"><span class=\"" + (x.read ? "" : "unread") + "\">" + esc(x.text) + "</span><br><span class=\"small\">" + esc(x.at) + " · " + esc(x.kind) + "</span></span>" + (x.read ? "" : "<span class=\"dot\" aria-label=\"읽지 않음\"></span>") + "</button>";
 			}).join("") + "</div>";
-			return h + "<p class=\"tiny\">알림을 열면 읽음으로 바뀌어 새 알림 수에서 빠집니다. 다른 사람의 알림은 보이지 않습니다.</p>";
+			h += "<p class=\"sec\">알림 받는 기준</p><div class=\"list prefs\">" + PREF("newpost", "내 과목에 새 매물이 올라오면", "수강 과목으로 등록한 과목의 교재 매물") + PREF("remind", "약속·확정 기한 하루 전 알림", "확정된 약속 일시, 수락 후 7일 확정 기한") + "<div><span class=\"grow\" style=\"min-width:0\"><span>거래 진행 · 운영 처리 알림</span><br><span class=\"small\">신청 · 수락 · 약속 · 완료, 신고 · 이의 결과 — 항상 받습니다 (REQ-043)</span></span>" + TAG("항상", "gray") + "</div></div>";
+			return h + "<p class=\"tiny\">알림을 열면 읽음으로 바뀌어 새 알림 수에서 빠집니다. 다른 사람의 알림은 보이지 않습니다. 끈 기준의 알림은 만들어지지 않습니다.</p>";
 		}
 	};
 	SC.me = {
@@ -2767,6 +2850,7 @@ function boot() {
 		renderGuide();
 	}
 	function tick() {
+		remindCheck();
 		var el = app.querySelector("[data-left]"), b = app.querySelector("[data-resend]"), st = app.querySelector(".sb-t");
 		if (st) st.textContent = hm(now());
 		Array.prototype.forEach.call(app.querySelectorAll(".lk-t"), function(x) {
@@ -2831,7 +2915,7 @@ function boot() {
 			return "<figure><img src=\"" + MASCOT[m[0]] + "\" alt=\"\"><figcaption>" + m[1] + "<small>" + m[2] + "</small></figcaption></figure>";
 		}).join("") + "</div><p class=\"gsmall\">표정·포즈마다 뜻을 하나로 고정하고, 한 화면에 하나만 씁니다. 매물 카드와 목록에는 넣지 않고, 화남 표정과 운동 포즈는 쓰지 않습니다. 색은 마스코트 파랑 #0057A7 · 남색 #162B49에 맞췄습니다.</p></div>";
 		h += "<div class=\"gcard\"><h2>시연 계정</h2><p class=\"gsmall\">수강생 <code>minji@" + DOMAIN + "</code> <code>doyun@" + DOMAIN + "</code> 비밀번호 <code>demo1234</code><br>운영자 <code>op01</code> 비밀번호 <code>admin1234</code></p><p class=\"gsmall\">학교 도메인 <code>" + DOMAIN + "</code>은 시연용 예시입니다.</p></div>";
-		h += "<details><summary>알아둘 점</summary><ul><li>로그인 화면에는 시연 계정(민지, 운영자 op01)이 미리 채워져 있습니다. 지우고 다른 값을 넣어도 됩니다.</li><li>입력한 내용은 이 화면 안에서만 유지되고, 새로 고치면 처음으로 돌아갑니다.</li><li>메일 발송, 파일 저장, 결제는 실제로 일어나지 않습니다. 인증코드는 인증코드 입력 화면과 위 도우미에 표시됩니다.</li><li>과목·교재·게시글은 Figma 화면에 나온 예시만 넣었습니다.</li><li>Figma에 없는 추가: 로그인 없이 둘러보기, 하단 메뉴의 새 알림 점, 운영자 접속 기록, 기준 정보의 과목 목록, 이 도우미.</li><li>위쪽의 ‘개선안’은 정돈된 실용형(A안)입니다: 홈에만 브랜드 머리, 나머지 화면은 뒤로 가기 + 큰 제목, 게시글 상세의 표지·큰 가격·하단 고정 버튼, 거래 진행 단계(대기중 → 신청 → 예약중 → 거래완료), 상태 색 고정(대기중 초록 · 신청 파랑 · 예약중·접수 주황 · 완료 회색 · 숨김 빨강), 글자·버튼 크기 기준. ‘Figma 원안’은 Figma 프로토타입의 네이비 색과 카드 모양 그대로입니다.</li><li>‘Android / iOS’는 Figma의 두 벌 화면(iOS: 상태바 47pt, 탭바 83pt, 버튼 50pt)을 따라 기기 틀을 바꿉니다. 상태바 시각은 ‘시간 넘기기’를 따라 움직입니다.</li><li>거래 신청은 Figma 흐름 1 순서(팝업 → 신청 보내는 중 → 거래를 신청했습니다 → 팝업 닫힘 → 스낵바 → 신청 중)대로 진행됩니다.</li><li>교재 표지와 사진은 실제 책을 찍은 것이 아니라 화면 안에서 그린 그림입니다(교재·출판사·사람 이름은 예시). 매물을 올릴 때 직접 고른 사진은 그대로 표시됩니다.</li><li>좋아요(M-05)는 Figma 게시글 상세에 있으나 대응 요구사항이 확인되지 않아 화면 안에서만 표시되고 저장되지 않습니다.</li></ul></details>";
+		h += "<details><summary>알아둘 점</summary><ul><li>로그인 화면에는 시연 계정(민지, 운영자 op01)이 미리 채워져 있습니다. 지우고 다른 값을 넣어도 됩니다.</li><li>입력한 내용은 이 화면 안에서만 유지되고, 새로 고치면 처음으로 돌아갑니다.</li><li>메일 발송, 파일 저장, 결제는 실제로 일어나지 않습니다. 인증코드는 인증코드 입력 화면과 위 도우미에 표시됩니다.</li><li>과목·교재·게시글은 Figma 화면에 나온 예시만 넣었습니다.</li><li>Figma에 없는 추가: 로그인 없이 둘러보기, 하단 메뉴의 새 알림 점, 운영자 접속 기록, 기준 정보의 과목 목록, 이 도우미.</li><li>v2에서 더한 것: 학교 마스코트, 알림 받는 기준 토글(내 과목 새 매물 · 약속/기한 하루 전 리마인드), 약속·확정 기한 D-day, 홈과 내 거래의 ‘다가오는 약속’ 카드, 알림 ‘모두 읽음’. 알림 기준과 D-day는 RTM v10에 없는 기능이라 발표 뒤 요구사항 반영을 검토합니다.</li><li>위쪽의 ‘개선안’은 정돈된 실용형(A안)입니다: 홈에만 브랜드 머리, 나머지 화면은 뒤로 가기 + 큰 제목, 게시글 상세의 표지·큰 가격·하단 고정 버튼, 거래 진행 단계(대기중 → 신청 → 예약중 → 거래완료), 상태 색 고정(대기중 초록 · 신청 파랑 · 예약중·접수 주황 · 완료 회색 · 숨김 빨강), 글자·버튼 크기 기준. ‘Figma 원안’은 Figma 프로토타입의 네이비 색과 카드 모양 그대로입니다.</li><li>‘Android / iOS’는 Figma의 두 벌 화면(iOS: 상태바 47pt, 탭바 83pt, 버튼 50pt)을 따라 기기 틀을 바꿉니다. 상태바 시각은 ‘시간 넘기기’를 따라 움직입니다.</li><li>거래 신청은 Figma 흐름 1 순서(팝업 → 신청 보내는 중 → 거래를 신청했습니다 → 팝업 닫힘 → 스낵바 → 신청 중)대로 진행됩니다.</li><li>교재 표지와 사진은 실제 책을 찍은 것이 아니라 화면 안에서 그린 그림입니다(교재·출판사·사람 이름은 예시). 매물을 올릴 때 직접 고른 사진은 그대로 표시됩니다.</li><li>좋아요(M-05)는 Figma 게시글 상세에 있으나 대응 요구사항이 확인되지 않아 화면 안에서만 표시되고 저장되지 않습니다.</li></ul></details>";
 		guide.innerHTML = h;
 	}
 	function collect(form) {
@@ -3134,6 +3218,12 @@ function boot() {
 				memo: ""
 			};
 			S.posts.push(p);
+			S.enroll.filter(function(e) {
+				var u = user(e.u);
+				return e.code === code && e.sem === curSem() && e.u !== S.me.id && u && u.active && prefOf(e.u).newpost;
+			}).forEach(function(e) {
+				notify(e.u, "내 과목 " + cname(code) + "에 교재 매물 ‘" + p.title + "’ " + won(p.price) + "이 올라왔습니다.", "새 매물");
+			});
 			root("post", { id: p.id });
 			flash("snack", {
 				text: "게시글을 올렸습니다. 대기중으로 표시됩니다.",
@@ -3689,6 +3779,16 @@ function boot() {
 				}
 			});
 			root("deals");
+		} else if (a === "pref") {
+			var pk = b.getAttribute("data-k"), pp = prefOf(me);
+			pp[pk] = !pp[pk];
+			S.keep = true;
+			flash("toast", pp[pk] ? "이 알림을 켰습니다" : "이 알림을 껐습니다");
+		} else if (a === "read-all") {
+			S.notifs.forEach(function(x) {
+				if (x.to === me) x.read = true;
+			});
+			S.keep = true;
 		} else if (a === "read") {
 			r = find(S.notifs, function(x) {
 				return x.id === id;
