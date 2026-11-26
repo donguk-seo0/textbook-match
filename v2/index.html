@@ -846,6 +846,12 @@ html.app .lock .lhint { white-space: nowrap; }
 .hs-stats span { display: block; font-size: 11.5px; opacity: .8; margin-top: 2px; }
 .list > .dayl { border-top: 0; padding: 12px 2px 2px; font-size: 12px; font-weight: 600; color: var(--muted); justify-content: flex-start; }
 .list > .dayl ~ .dayl { border-top: 1px solid var(--line); padding-top: 14px; }
+/* ---------- v2d: 찜 · 후기 · 운영자 요약 ---------- */
+.rvsum { display: block; font-size: 12px; color: var(--ok-fg); margin-top: 2px; }
+.rvchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.hs-stats > div { text-align: left; padding-left: 12px; border-left: 1px solid rgba(255, 255, 255, .18); }
+.hs-stats > div:first-child { padding-left: 0; border-left: 0; }
+.card.likecard { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; }
 </style>
 <div class="topbar">
   <div class="ptools" id="ptools">
@@ -1424,7 +1430,9 @@ function boot() {
 			deep: null,
 			launch: false,
 			prefs: {},
-			reminded: {}
+			reminded: {},
+			reviews: [{ id: 9001, req: 0, post: 3, seller: "doyun", by: "harin", tags: ["약속 시간 지킴", "설명과 같은 상태"], at: "2026. 11. 10. 18:20" }],
+			rv: null
 		};
 	}
 	function isOp() {
@@ -1581,6 +1589,84 @@ function boot() {
 			render();
 		}
 	}
+	/* v2d: 찜은 계정별로 저장 · 찜한 매물이 바뀌면 알림 · 거래 후기 · 신고 처리 기한 */
+	var RV_TAGS = ["약속 시간 지킴", "설명과 같은 상태", "응답이 빠름", "친절함"];
+	function lkey(pid) {
+		return (S.me ? S.me.id : "guest") + ":" + pid;
+	}
+	function likersOf(pid) {
+		return Object.keys(S.likes).filter(function(k) {
+			return S.likes[k] && k.slice(k.indexOf(":") + 1) === String(pid);
+		}).map(function(k) {
+			return k.slice(0, k.indexOf(":"));
+		}).filter(function(u) {
+			return u !== "guest";
+		});
+	}
+	function notifyLikers(p, text, exclude) {
+		likersOf(p.id).forEach(function(u) {
+			if (u === p.owner || (exclude || []).indexOf(u) >= 0) return;
+			notify(u, "찜한 매물 ‘" + p.title + "’" + text, "찜 매물 변경", { go: "post", id: p.id });
+		});
+	}
+	function tsOf(r) {
+		if (r.t) return r.t;
+		var m = /(\d{4})\. (\d{1,2})\. (\d{1,2})\. (\d{1,2}):(\d{2})/.exec(r.at || "");
+		return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5]).getTime() : now();
+	}
+	function OPSUM() {
+		var open = S.reports.filter(function(r) {
+			return r.status === "접수";
+		}), over = open.filter(function(r) {
+			return now() > tsOf(r) + 3 * DAY;
+		}).length, day = function(a) {
+			return a ? a.slice(0, a.lastIndexOf(" ")) : "";
+		}, today = S.reports.filter(function(r) {
+			return r.status === "처리완료" && day(r.handledAt) === day(fmt(now()));
+		}).length;
+		return "<div class=\"hsum\"><div class=\"hs-head\">처리 목표 · 접수 후 3일 (프로토타입 가정)</div><div class=\"hs-stats\"><div><b>" + open.length + "</b><span>처리 대기</span></div><div><b>" + over + "</b><span>기한 지남</span></div><div><b>" + today + "</b><span>오늘 처리</span></div></div></div>";
+	}
+	function REVIEW(r, p, seller) {
+		var rv = find(S.reviews, function(x) {
+			return x.req === r.id;
+		});
+		if (rv) return "<div class=\"card\"><b class=\"sec\">거래 후기</b><p class=\"small\">" + esc(nick(rv.by)) + "님 · " + esc(rv.at) + "</p><div class=\"rvchips\">" + rv.tags.map(function(t) {
+			return "<span class=\"chip on\">" + esc(t) + "</span>";
+		}).join("") + "</div></div>";
+		if (seller) return "<div class=\"note info\">거래가 끝났습니다. 구매자가 후기를 남기면 여기에 표시됩니다.</div>";
+		var sel = S.rv && S.rv.id === r.id ? S.rv.tags : [];
+		return "<div class=\"card\"><b class=\"sec\">거래는 어땠나요?</b><p class=\"small\">해당하는 항목을 고르세요. 판매자 카드에 횟수로만 표시되고 글은 남기지 않습니다.</p><div class=\"rvchips\">" + RV_TAGS.map(function(t) {
+			return "<button type=\"button\" class=\"chip" + (sel.indexOf(t) >= 0 ? " on" : "") + "\" data-act=\"rv-tag\" data-id=\"" + r.id + "\" data-v=\"" + t + "\" aria-pressed=\"" + (sel.indexOf(t) >= 0) + "\">" + t + "</button>";
+		}).join("") + "</div><div class=\"btnrow\">" + B("후기 남기기", "rv-save", "sm", " data-id=\"" + r.id + "\"" + (sel.length ? "" : " disabled")) + "</div></div>";
+	}
+	function RVSUM(uid) {
+		var rvs = S.reviews.filter(function(x) {
+			return x.seller === uid;
+		});
+		if (!rvs.length) return "";
+		var cnt = {};
+		rvs.forEach(function(x) {
+			x.tags.forEach(function(t) {
+				cnt[t] = (cnt[t] || 0) + 1;
+			});
+		});
+		return "<small class=\"rvsum\">거래 후기 " + rvs.length + " · " + Object.keys(cnt).sort(function(a, b) {
+			return cnt[b] - cnt[a];
+		}).slice(0, 2).map(function(t) {
+			return t + " " + cnt[t];
+		}).join(" · ") + "</small>";
+	}
+	function LIKED(me) {
+		var likedPosts = S.posts.filter(function(p) {
+			return S.likes[lkey(p.id)] && alive(p) && p.type === "sale" && p.owner !== me;
+		});
+		if (!likedPosts.length) return "";
+		var h = "<p class=\"sec\">찜한 매물 " + likedPosts.length + "</p>";
+		likedPosts.forEach(function(p) {
+			h += "<button type=\"button\" class=\"card likecard\" data-act=\"open\" data-id=\"" + p.id + "\"><span class=\"line2\"><span class=\"ctitle\">" + esc(p.title) + "</span>" + stTag(p.status) + "</span><span class=\"small\">" + esc(cname(p.course)) + " · " + won(p.price) + " · 판매자 " + esc(nick(p.owner)) + "</span></button>";
+		});
+		return h + "<p class=\"tiny\">찜한 매물이 예약중·거래완료·대기중으로 바뀌거나 가격이 바뀌면 알림으로 알려 드립니다.</p>";
+	}
 	function unread() {
 		return S.me ? S.notifs.filter(function(n) {
 			return n.to === S.me.id && !n.read;
@@ -1602,6 +1688,7 @@ function boot() {
 				r.status = "기한경과";
 				p.status = "대기중";
 				p.expNote = true;
+				notifyLikers(p, "이 다시 대기중입니다. 지금 신청할 수 있습니다.", [r.buyer]);
 				notify(p.owner, "‘" + p.title + "’ 약속이 기한 안에 확정되지 않아 대기중으로 돌아갔습니다.", "기한 경과", { root: "deals" });
 				notify(r.buyer, "‘" + p.title + "’ 약속이 기한 안에 확정되지 않았습니다.", "기한 경과", { root: "deals" });
 			}
@@ -1974,7 +2061,7 @@ function boot() {
 	}
 	function SELLER(p) {
 		var u = user(p.owner);
-		return "<div class=\"seller\">" + AV(p.owner) + "<span class=\"grow\"><b>" + esc(nick(p.owner)) + "</b><small>" + esc((u.dept || "학과 미입력") + " · " + p.when) + "</small></span>" + TAG("재학생 인증", "ok") + "</div>";
+		return "<div class=\"seller\">" + AV(p.owner) + "<span class=\"grow\"><b>" + esc(nick(p.owner)) + "</b><small>" + esc((u.dept || "학과 미입력") + " · " + p.when) + "</small>" + RVSUM(p.owner) + "</span>" + TAG("재학생 인증", "ok") + "</div>";
 	}
 	function HELLO() {
 		var mine = myCodes(), hot = S.posts.some(function(p) { return p.type === "sale" && p.status === "대기중" && alive(p) && p.owner !== S.me.id && mine.indexOf(p.course) >= 0; });
@@ -2216,7 +2303,7 @@ function boot() {
 			var p = post(a.id);
 			if (!p || !alive(p)) return SC.gone.r();
 			var mine = isStu() && p.owner === S.me.id, fail = S.sim.statusFail, r = isStu() ? myReq(p.id) : null;
-			var liked = !!S.likes[p.id], pop = S.likePop === p.id;
+			var liked = !!S.likes[lkey(p.id)], pop = S.likePop === p.id;
 			S.likePop = null;
 			var likeBtn = "<button type=\"button\" class=\"like" + (liked ? " on" : "") + (pop ? " pop" : "") + "\" data-act=\"like\" data-id=\"" + p.id + "\" aria-pressed=\"" + liked + "\" aria-label=\"좋아요\">" + HEART + "</button>";
 			if (SKIN !== "0") {
@@ -2282,7 +2369,7 @@ function boot() {
 		r: function() {
 			var h = H1("수강 과목") + "<p class=\"p\">과목코드로 이번 학기 수강 과목을 등록하세요.</p><form data-form=\"courses\" novalidate><div class=\"row\"><div class=\"grow field\"><input class=\"inp" + (S.err.code ? " bad" : "") + "\" id=\"f-code\" name=\"code\" type=\"text\" autocomplete=\"off\" autocapitalize=\"characters\" aria-label=\"과목코드\" placeholder=\"과목코드 (예: BIZ301)\" value=\"" + esc(val("courses", "code")) + "\">" + er("code") + "</div><button class=\"btn\" type=\"submit\">등록</button></div></form>";
 			myCodes().forEach(function(code) {
-				h += "<div class=\"card\"><div class=\"line2\"><span class=\"cname\">" + esc(cname(code)) + "</span><span class=\"rowacts\"><button class=\"textlink\" type=\"button\" data-act=\"ask-editcourse\" data-code=\"" + code + "\">수정</button><button class=\"textlink\" type=\"button\" data-act=\"ask-delcourse\" data-code=\"" + code + "\">삭제</button></span></div><p class=\"small\">" + esc(course(code).profs.join(", ")) + " 교수 · " + esc(semName()) + "</p></div>";
+				h += "<div class=\"card\"><div class=\"line2\"><span class=\"cname\">" + esc(cname(code)) + "</span>" + (count(code, "sale", "대기중") ? TAG("대기중 매물 " + count(code, "sale", "대기중"), "pub") : "") + "<span class=\"rowacts\"><button class=\"textlink\" type=\"button\" data-act=\"ask-editcourse\" data-code=\"" + code + "\">수정</button><button class=\"textlink\" type=\"button\" data-act=\"ask-delcourse\" data-code=\"" + code + "\">삭제</button></span></div><p class=\"small\">" + esc(course(code).profs.join(", ")) + " 교수 · " + esc(semName()) + "</p></div>";
 			});
 			return h;
 		}
@@ -2442,7 +2529,7 @@ function boot() {
 			}), n = unread();
 			var h = H1("내 거래") + "<button type=\"button\" class=\"card\" data-act=\"go\" data-to=\"notifs\"><span class=\"line2\"><span style=\"font-size:14px;font-weight:600\">알림</span>" + (n ? TAG("새 알림 " + n, "red") : "<span class=\"small\">새 알림 없음</span>") + "</span></button>";
 			h += UPCOMING("deals");
-			if (!mine.length && !asked.length) return h + "<div class=\"empty\">" + MS("pose-polite") + "<b>등록하거나 신청한 거래가 없습니다</b><p class=\"small\">교재를 올리거나 내 과목 자료에서 매물을 찾아 신청해 보세요.</p><div class=\"btnrow split\">" + B("올리기", "root", "", " data-to=\"upload\"") + B("자료 찾기", "root", "line", " data-to=\"home\"") + "</div></div>";
+			if (!mine.length && !asked.length) return h + "<div class=\"empty\">" + MS("pose-polite") + "<b>등록하거나 신청한 거래가 없습니다</b><p class=\"small\">교재를 올리거나 내 과목 자료에서 매물을 찾아 신청해 보세요.</p><div class=\"btnrow split\">" + B("올리기", "root", "", " data-to=\"upload\"") + B("자료 찾기", "root", "line", " data-to=\"home\"") + "</div></div>" + LIKED(me);
 			h += "<p class=\"sec\">내가 올린 게시글</p>";
 			if (!mine.length) h += "<p class=\"small\">올린 게시글이 없습니다.</p>";
 			mine.forEach(function(p) {
@@ -2474,11 +2561,15 @@ function boot() {
 				}[r.status];
 				if (SKIN !== "0" && rs) h += MINI(rs);
 				if (r.status === "수락") h += "<div class=\"btnrow\">" + B(r.appt ? "약속 보기" : "약속 정하기", "go", "sm", " data-to=\"deal\" data-id=\"" + r.id + "\"") + "</div>";
+				if (r.status === "완료") h += "<div class=\"btnrow\">" + B(find(S.reviews, function(x) {
+					return x.req === r.id;
+				}) ? "후기 보기" : "후기 남기기", "go", "line sm", " data-to=\"deal\" data-id=\"" + r.id + "\"") + "</div>";
 				if (r.status === "종료" && r.end === "other") h += "<p class=\"small\">판매자가 다른 신청을 수락해 이 신청은 종료되었습니다. 거래가 취소되어도 되살아나지 않습니다.</p>";
 				if (r.status === "기한경과") h += "<p class=\"small\">약속이 기한 안에 확정되지 않았습니다.</p>";
 				if (r.status === "취소") h += "<p class=\"small\">취소 사유: " + esc(r.reason) + "</p>";
 				h += "</div>";
 			});
+			h += LIKED(me);
 			return h;
 		}
 	};
@@ -2492,7 +2583,7 @@ function boot() {
 			}), p = post(r.post), seller = p.owner === S.me.id, role = seller ? "seller" : "buyer", ap = r.appt;
 			var h = H1(ap && ap.ok ? "약속" : "약속 정하기", "<span class=\"ddtags\">" + DDR(r) + (ap && ap.ok ? TAG("확정", "ok") : "") + "</span>") + "<div class=\"card\"><span style=\"font-size:14px;font-weight:600\">" + esc(p.title) + " · " + (seller ? "구매자 " + esc(nick(r.buyer)) : "판매자 " + esc(nick(p.owner))) + "</span><p class=\"small\">" + fmt(r.acceptedAt) + " 수락</p></div>";
 			if (SKIN !== "0" && (r.status === "수락" || r.status === "완료")) h += STEPPER(r.status === "완료" ? 4 : 3, r.status === "완료" ? "거래가 끝났습니다." : !ap ? "약속 제안 전 · " + fmt(r.acceptedAt + 7 * DAY) + "까지 확정해야 합니다." : ap.ok ? "약속 확정 · " + fmt(ap.dt) + " · " + ap.place : "상대의 동의를 기다리고 있습니다.");
-			if (r.status !== "수락") return h + "<div class=\"note info\">이 거래는 " + esc(r.status) + " 상태입니다.</div>" + B("내 거래로", "root", "line full", " data-to=\"deals\"");
+			if (r.status !== "수락") return h + (r.status === "완료" ? REVIEW(r, p, seller) : "<div class=\"note info\">이 거래는 " + esc(r.status) + " 상태입니다.</div>") + B("내 거래로", "root", "line full", " data-to=\"deals\"");
 			if (!ap || a.edit) return h + FORM("deal", F("deal", "dt", "일시 *", { type: "datetime-local" }) + F("deal", "place", "장소 *") + "<div class=\"note warn\">수락 후 7일 안(" + fmt(r.acceptedAt + 7 * DAY) + "까지)에 약속이 확정되지 않으면 매물은 대기중으로 돌아갑니다.</div><p class=\"small\">지난 일시나 빈 장소로는 확정되지 않습니다.</p>" + SUBMIT("약속 제안하기"), "tight") + "<div class=\"btnrow\">" + B("거래 취소", "ask-cancel", "quiet sm", " data-id=\"" + r.id + "\"") + "</div>";
 			h += "<div class=\"card\">" + KV("일시", fmt(ap.dt)) + KV("장소", ap.place) + KV(nick(p.owner) + " (판매자)", stTag(ap.seller ? "동의" : "대기"), true) + KV(nick(r.buyer) + " (구매자)", stTag(ap.buyer ? "동의" : "대기"), true) + "</div>";
 			if (ap.ok) return h + "<p class=\"small\">거래가 끝나면 판매자가 거래 완료로 바꿉니다.</p><div class=\"btnrow split\">" + B("거래 취소", "ask-cancel", "danger line", " data-id=\"" + r.id + "\"") + (seller ? B("거래 완료", "ask-complete", "", " data-id=\"" + r.id + "\"") : "") + "</div>";
@@ -2535,11 +2626,11 @@ function boot() {
 			var tab = val("op-reports", "tab", "접수"), list = S.reports.filter(function(r) {
 				return r.status === tab;
 			});
-			var h = H1("신고 처리") + SEG("op-reports", "tab", ["접수", "처리완료"], "접수");
+			var h = H1("신고 처리") + SEG("op-reports", "tab", ["접수", "처리완료"], "접수") + OPSUM();
 			if (!list.length) return h + "<div class=\"empty\">" + MS("pose-best") + "<b>처리할 신고가 없습니다</b><p class=\"small\">새 신고가 접수되면 오래된 순으로 표시됩니다.</p></div>";
 			h += "<p class=\"small\">" + tab + " " + list.length + "건 · 오래된 순</p>";
 			list.forEach(function(r) {
-				var body = "<span class=\"line2\"><span class=\"ctitle\">" + esc(post(r.post).title) + "</span>" + stTag(r.status) + "</span>" + KV("신고 사유", r.reason) + KV("접수", r.at) + (r.status === "처리완료" ? KV("조치", r.action) + KV("처리 사유", r.why) + KV("처리자 · 처리 시각", r.handler + " · " + r.handledAt) : "");
+				var body = "<span class=\"line2\"><span class=\"ctitle\">" + esc(post(r.post).title) + "</span><span class=\"ddtags\">" + (r.status === "접수" ? DD(tsOf(r) + 3 * DAY, "처리 기한") : "") + stTag(r.status) + "</span></span>" + KV("신고 사유", r.reason) + KV("접수", r.at) + (r.status === "처리완료" ? KV("조치", r.action) + KV("처리 사유", r.why) + KV("처리자 · 처리 시각", r.handler + " · " + r.handledAt) : "");
 				h += "<div class=\"card\">" + body + (r.status === "접수" ? "<div class=\"btnrow\">" + B("처리", "go", "sm", " data-to=\"op-report\" data-id=\"" + r.id + "\"") + "</div>" : "") + "</div>";
 			});
 			return h;
@@ -2971,7 +3062,7 @@ function boot() {
 			return "<figure><img src=\"" + MASCOT[m[0]] + "\" alt=\"\"><figcaption>" + m[1] + "<small>" + m[2] + "</small></figcaption></figure>";
 		}).join("") + "</div><p class=\"gsmall\">표정·포즈마다 뜻을 하나로 고정하고, 한 화면에 하나만 씁니다. 매물 카드와 목록에는 넣지 않고, 화남 표정과 운동 포즈는 쓰지 않습니다. 색은 마스코트 파랑 #0057A7 · 남색 #162B49에 맞췄습니다.</p></div>";
 		h += "<div class=\"gcard\"><h2>시연 계정</h2><p class=\"gsmall\">수강생 <code>minji@" + DOMAIN + "</code> <code>doyun@" + DOMAIN + "</code> 비밀번호 <code>demo1234</code><br>운영자 <code>op01</code> 비밀번호 <code>admin1234</code></p><p class=\"gsmall\">학교 도메인 <code>" + DOMAIN + "</code>은 시연용 예시입니다.</p></div>";
-		h += "<details><summary>알아둘 점</summary><ul><li>로그인 화면에는 시연 계정(민지, 운영자 op01)이 미리 채워져 있습니다. 지우고 다른 값을 넣어도 됩니다.</li><li>입력한 내용은 이 화면 안에서만 유지되고, 새로 고치면 처음으로 돌아갑니다.</li><li>메일 발송, 파일 저장, 결제는 실제로 일어나지 않습니다. 인증코드는 인증코드 입력 화면과 위 도우미에 표시됩니다.</li><li>과목·교재·게시글은 Figma 화면에 나온 예시만 넣었습니다.</li><li>Figma에 없는 추가: 로그인 없이 둘러보기, 하단 메뉴의 새 알림 점, 운영자 접속 기록, 기준 정보의 과목 목록, 이 도우미.</li><li>v2에서 더한 것: 학교 마스코트, 알림 받는 기준 토글(내 과목 새 매물 · 약속/기한 하루 전 리마인드), 약속·확정 기한 D-day, 홈과 내 거래의 ‘다가오는 약속’ 카드, 홈 요약 카드(대기중 매물·진행 중 거래·새 알림), 알림 ‘모두 읽음’과 오늘/이전 묶음, 알림을 누르면 관련 화면으로 이동, 잠금 화면의 ‘약속 리마인드’ 시나리오. 알림 기준과 D-day는 RTM v10에 없는 기능이라 발표 뒤 요구사항 반영을 검토합니다.</li><li>위쪽의 ‘개선안’은 정돈된 실용형(A안)입니다: 홈에만 브랜드 머리, 나머지 화면은 뒤로 가기 + 큰 제목, 게시글 상세의 표지·큰 가격·하단 고정 버튼, 거래 진행 단계(대기중 → 신청 → 예약중 → 거래완료), 상태 색 고정(대기중 초록 · 신청 파랑 · 예약중·접수 주황 · 완료 회색 · 숨김 빨강), 글자·버튼 크기 기준. ‘Figma 원안’은 Figma 프로토타입의 네이비 색과 카드 모양 그대로입니다.</li><li>‘Android / iOS’는 Figma의 두 벌 화면(iOS: 상태바 47pt, 탭바 83pt, 버튼 50pt)을 따라 기기 틀을 바꿉니다. 상태바 시각은 ‘시간 넘기기’를 따라 움직입니다.</li><li>거래 신청은 Figma 흐름 1 순서(팝업 → 신청 보내는 중 → 거래를 신청했습니다 → 팝업 닫힘 → 스낵바 → 신청 중)대로 진행됩니다.</li><li>교재 표지와 사진은 실제 책을 찍은 것이 아니라 화면 안에서 그린 그림입니다(교재·출판사·사람 이름은 예시). 매물을 올릴 때 직접 고른 사진은 그대로 표시됩니다.</li><li>좋아요(M-05)는 Figma 게시글 상세에 있으나 대응 요구사항이 확인되지 않아 화면 안에서만 표시되고 저장되지 않습니다.</li></ul></details>";
+		h += "<details><summary>알아둘 점</summary><ul><li>로그인 화면에는 시연 계정(민지, 운영자 op01)이 미리 채워져 있습니다. 지우고 다른 값을 넣어도 됩니다.</li><li>입력한 내용은 이 화면 안에서만 유지되고, 새로 고치면 처음으로 돌아갑니다.</li><li>메일 발송, 파일 저장, 결제는 실제로 일어나지 않습니다. 인증코드는 인증코드 입력 화면과 위 도우미에 표시됩니다.</li><li>과목·교재·게시글은 Figma 화면에 나온 예시만 넣었습니다.</li><li>Figma에 없는 추가: 로그인 없이 둘러보기, 하단 메뉴의 새 알림 점, 운영자 접속 기록, 기준 정보의 과목 목록, 이 도우미.</li><li>v2에서 더한 것: 학교 마스코트, 알림 받는 기준 토글(내 과목 새 매물 · 약속/기한 하루 전 리마인드), 약속·확정 기한 D-day, 홈과 내 거래의 ‘다가오는 약속’ 카드, 홈 요약 카드(대기중 매물·진행 중 거래·새 알림), 알림 ‘모두 읽음’과 오늘/이전 묶음, 알림을 누르면 관련 화면으로 이동, 잠금 화면의 ‘약속 리마인드’ 시나리오, 계정별 찜과 찜 매물 변경 알림(예약중·거래완료·대기중 복귀·가격 변경), 거래 후기 한 줄(판매자 카드에 횟수로 표시), 운영자 신고 처리 기한 D-day와 요약 카드(처리 목표 3일은 프로토타입 가정), 수강 과목의 ‘대기중 매물 n’ 배지. 알림 기준과 D-day는 RTM v10에 없는 기능이라 발표 뒤 요구사항 반영을 검토합니다.</li><li>위쪽의 ‘개선안’은 정돈된 실용형(A안)입니다: 홈에만 브랜드 머리, 나머지 화면은 뒤로 가기 + 큰 제목, 게시글 상세의 표지·큰 가격·하단 고정 버튼, 거래 진행 단계(대기중 → 신청 → 예약중 → 거래완료), 상태 색 고정(대기중 초록 · 신청 파랑 · 예약중·접수 주황 · 완료 회색 · 숨김 빨강), 글자·버튼 크기 기준. ‘Figma 원안’은 Figma 프로토타입의 네이비 색과 카드 모양 그대로입니다.</li><li>‘Android / iOS’는 Figma의 두 벌 화면(iOS: 상태바 47pt, 탭바 83pt, 버튼 50pt)을 따라 기기 틀을 바꿉니다. 상태바 시각은 ‘시간 넘기기’를 따라 움직입니다.</li><li>거래 신청은 Figma 흐름 1 순서(팝업 → 신청 보내는 중 → 거래를 신청했습니다 → 팝업 닫힘 → 스낵바 → 신청 중)대로 진행됩니다.</li><li>교재 표지와 사진은 실제 책을 찍은 것이 아니라 화면 안에서 그린 그림입니다(교재·출판사·사람 이름은 예시). 매물을 올릴 때 직접 고른 사진은 그대로 표시됩니다.</li><li>좋아요(M-05)는 Figma 게시글 상세에 있으나 대응 요구사항이 확인되지 않아 화면 안에서만 표시되고 저장되지 않습니다.</li></ul></details>";
 		guide.innerHTML = h;
 	}
 	function collect(form) {
@@ -3315,6 +3406,7 @@ function boot() {
 			var hit = bannedHits(String(v.memo || "") + " " + place);
 			if (hit.length) S.err.memo = "금지어(" + hit.join(", ") + ")가 있어 저장하지 않았습니다. 강의 PPT·기출문제·강의 녹음은 올릴 수 없습니다.";
 			if (Object.keys(S.err).length) return;
+			if (p.price !== Number(price)) notifyLikers(p, " 가격이 " + won(p.price) + " → " + won(Number(price)) + "으로 바뀌었습니다.");
 			p.price = Number(price);
 			p.cond = v.cond || p.cond;
 			p.place = place;
@@ -3391,6 +3483,7 @@ function boot() {
 			r.status = "취소";
 			r.reason = why;
 			p.status = "대기중";
+			notifyLikers(p, "이 다시 대기중입니다. 지금 신청할 수 있습니다.", [r.buyer]);
 			notify(p.owner === S.me.id ? r.buyer : p.owner, nick(S.me.id) + "님이 ‘" + p.title + "’ 거래를 취소했습니다: " + why, "거래 취소", { root: "deals" });
 			root("deals");
 		},
@@ -3426,6 +3519,7 @@ function boot() {
 				reason: REASONS[i],
 				desc,
 				at: fmt(now()),
+				t: now(),
 				status: "접수"
 			});
 			S.modal = null;
@@ -3725,8 +3819,8 @@ function boot() {
 			setv("sell", "photos", rp);
 			S.keep = true;
 		} else if (a === "like") {
-			S.likes[id] = !S.likes[id];
-			S.likePop = S.likes[id] ? id : null;
+			S.likes[lkey(id)] = !S.likes[lkey(id)];
+			S.likePop = S.likes[lkey(id)] ? id : null;
 			S.keep = true;
 		} else if (a === "ask-report") if (!isStu()) needLogin();
 		else {
@@ -3747,6 +3841,7 @@ function boot() {
 				r.acceptedAt = now();
 				p.status = "예약중";
 				p.expNote = false;
+				notifyLikers(p, "이 예약중으로 바뀌었습니다.", [r.buyer]);
 				S.reqs.forEach(function(x) {
 					if (x.post === p.id && x.id !== r.id && x.status === "신청") {
 						x.status = "종료";
@@ -3808,6 +3903,7 @@ function boot() {
 			if (p.owner === me && p.status === "예약중") {
 				p.status = "거래완료";
 				r.status = "완료";
+				notifyLikers(p, "이 거래완료되었습니다.", [r.buyer]);
 				notify(r.buyer, "‘" + p.title + "’ 거래가 완료되었습니다.", "거래 완료", { root: "deals", go: "deal", id: r.id });
 			}
 			root("deals");
@@ -3835,6 +3931,23 @@ function boot() {
 				}
 			});
 			root("deals");
+		} else if (a === "rv-tag") {
+			if (!S.rv || S.rv.id !== id) S.rv = { id, tags: [] };
+			var ti = S.rv.tags.indexOf(v);
+			if (ti >= 0) S.rv.tags.splice(ti, 1);
+			else S.rv.tags.push(v);
+			S.keep = true;
+		} else if (a === "rv-save") {
+			if (!S.rv || S.rv.id !== id || !S.rv.tags.length) return;
+			r = find(S.reqs, function(x) {
+				return x.id === id;
+			});
+			p = post(r.post);
+			S.reviews.push({ id: S.n++, req: r.id, post: p.id, seller: p.owner, by: me, tags: S.rv.tags.slice(), at: fmt(now()) });
+			notify(p.owner, nick(me) + "님이 ‘" + p.title + "’ 거래 후기를 남겼습니다: " + S.rv.tags.join(" · "), "거래 후기", { root: "deals", go: "deal", id: r.id });
+			S.rv = null;
+			S.keep = true;
+			flash("toast", "후기를 남겼습니다");
 		} else if (a === "pref") {
 			var pk = b.getAttribute("data-k"), pp = prefOf(me);
 			pp[pk] = !pp[pk];
@@ -4030,7 +4143,7 @@ function boot() {
 		} else if (k === "like") {
 			var pid = cur().s === "post" ? cur().p.id : 3;
 			if (cur().s !== "post") go("post", { id: 3 });
-			S.likes[pid] = true;
+			S.likes[lkey(pid)] = true;
 			S.likePop = pid;
 		} else if (k === "check") {
 			if (!isStu() && !asStudent("minji")) {
