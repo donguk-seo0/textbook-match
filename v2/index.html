@@ -852,6 +852,13 @@ html.app .lock .lhint { white-space: nowrap; }
 .hs-stats > div { text-align: left; padding-left: 12px; border-left: 1px solid rgba(255, 255, 255, .18); }
 .hs-stats > div:first-child { padding-left: 0; border-left: 0; }
 .card.likecard { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; }
+/* ---------- v2e: 구해요 · 금지어 사전 ---------- */
+.banwrap { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.banchip { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 6px 0 10px; border-radius: 8px; background: var(--soft); border: 1px solid var(--line); font-size: 12.5px; }
+.banchip button { width: 20px; height: 20px; border-radius: 50%; font-size: 15px; line-height: 1; color: var(--muted); }
+.banchip button:hover { background: var(--line); color: var(--ink); }
+.shortcuts.wants { align-items: center; }
+.shortcuts.wants .textlink { margin-left: auto; }
 </style>
 <div class="topbar">
   <div class="ptools" id="ptools">
@@ -1002,7 +1009,7 @@ function boot() {
 	}
 	function bannedHits(s) {
 		var n = normWords(s), hit = [];
-		BANNED.forEach(function(b) {
+		(S && S.banned ? S.banned : BANNED).forEach(function(b) {
 			b.w.forEach(function(w) {
 				if (n.indexOf(w) >= 0 && hit.indexOf(w) < 0) hit.push(w);
 			});
@@ -1432,7 +1439,12 @@ function boot() {
 			prefs: {},
 			reminded: {},
 			reviews: [{ id: 9001, req: 0, post: 3, seller: "doyun", by: "harin", tags: ["약속 시간 지킴", "설명과 같은 상태"], at: "2026. 11. 10. 18:20" }],
-			rv: null
+			rv: null,
+			wants: [],
+			banned: BANNED.map(function(b) {
+				return { g: b.g, w: b.w.slice() };
+			}),
+			banlog: []
 		};
 	}
 	function isOp() {
@@ -1666,6 +1678,76 @@ function boot() {
 			h += "<button type=\"button\" class=\"card likecard\" data-act=\"open\" data-id=\"" + p.id + "\"><span class=\"line2\"><span class=\"ctitle\">" + esc(p.title) + "</span>" + stTag(p.status) + "</span><span class=\"small\">" + esc(cname(p.course)) + " · " + won(p.price) + " · 판매자 " + esc(nick(p.owner)) + "</span></button>";
 		});
 		return h + "<p class=\"tiny\">찜한 매물이 예약중·거래완료·대기중으로 바뀌거나 가격이 바뀌면 알림으로 알려 드립니다.</p>";
+	}
+	/* v2e: 가격 참고선 · 구해요 · 금지어 사전 · 신고 누적 자동 숨김 */
+	function PRICEREF(code, bs) {
+		var b = find(bs, function(x) {
+			return String(x.id) === String(val("sell", "book", bs[0] ? bs[0].id : ""));
+		}) || bs[0];
+		if (!b) return "";
+		var same = S.posts.filter(function(p) {
+			return p.type === "sale" && !p.deleted && p.course === code && p.title === b.title && p.owner !== S.me.id;
+		}), open = same.filter(function(p) {
+			return p.status === "대기중" && !p.hidden;
+		}).map(function(p) {
+			return p.price;
+		}), done = same.filter(function(p) {
+			return p.status === "거래완료";
+		}), wants = S.wants.filter(function(w) {
+			return w.course === code && w.title === b.title && w.status === "구하는 중" && w.by !== S.me.id;
+		}), parts = [];
+		if (open.length) parts.push("현재 매물 " + open.length + "건 " + won(Math.min.apply(null, open)) + (open.length > 1 ? "~" + won(Math.max.apply(null, open)) : ""));
+		if (done.length) parts.push("최근 거래 " + won(done[done.length - 1].price));
+		var wp = wants.filter(function(w) {
+			return w.price;
+		}).map(function(w) {
+			return w.price;
+		});
+		if (wants.length) parts.push("구하는 사람 " + wants.length + "명" + (wp.length ? " · 희망 " + won(Math.max.apply(null, wp)) + "까지" : ""));
+		return "<div class=\"note info\">가격 참고 · " + (parts.length ? parts.join(" · ") : "이 교재의 매물·거래 기록이 아직 없습니다") + "</div>";
+	}
+	function WANTS(me) {
+		var ws = S.wants.filter(function(w) {
+			return w.by === me && w.status === "구하는 중";
+		});
+		if (!ws.length) return "";
+		var h = "<p class=\"sec\">내 구해요 " + ws.length + "</p>";
+		ws.forEach(function(w) {
+			var n = S.posts.filter(function(p) {
+				return p.type === "sale" && p.status === "대기중" && alive(p) && p.course === w.course && p.title === w.title && p.owner !== me;
+			}).length;
+			h += "<div class=\"card\"><div class=\"line2\"><span class=\"ctitle\">" + esc(w.title) + "</span>" + (n ? TAG("매물 " + n + "건", "pub") : TAG("기다리는 중", "gray")) + "</div><p class=\"small\">" + esc(cname(w.course)) + " · 희망 " + (w.price ? won(w.price) : "협의") + (w.memo ? " · " + esc(w.memo) : "") + " · " + esc(w.at) + "</p><div class=\"btnrow\">" + B("마감", "want-close", "quiet sm", " data-id=\"" + w.id + "\"") + "</div></div>";
+		});
+		return h + "<p class=\"tiny\">같은 교재 매물이 올라오면 알림으로 알려 드립니다. 구한 뒤에는 마감해 주세요.</p>";
+	}
+	function BANDICT() {
+		var h = "<p class=\"sec\">금지어 사전 · DEF-01 묶음 규칙</p><p class=\"small\">파일명·제목·메모에서 띄어쓰기와 기호를 뺀 뒤 아래 낱말이 들어 있으면 저장 전에 막습니다. 고치면 바로 적용됩니다.</p>";
+		S.banned.forEach(function(g, gi) {
+			h += "<div class=\"card\"><div class=\"line2\"><b style=\"font-size:14px;font-weight:600\">" + esc(g.g) + "</b><span class=\"small\">" + g.w.length + "개</span></div><div class=\"banwrap\">" + (g.w.length ? g.w.map(function(w) {
+				return "<span class=\"banchip\">" + esc(w) + "<button type=\"button\" data-act=\"ban-del\" data-g=\"" + gi + "\" data-v=\"" + esc(w) + "\" aria-label=\"" + esc(w) + " 삭제\">×</button></span>";
+			}).join("") : "<span class=\"small\">낱말 없음</span>") + "</div></div>";
+		});
+		h += FORM("ban", SEL("ban", "g", "묶음", S.banned.map(function(g, i) {
+			return [i, g.g];
+		})) + F("ban", "word", "추가할 낱말", { ph: "예: 기말족보" }) + SUBMIT("금지어 추가"), "tight");
+		h += "<div class=\"btnrow\">" + B("기본값으로 되돌리기", "ban-reset", "quiet sm") + "</div>";
+		if (S.banlog.length) h += "<p class=\"tiny\">최근 변경 · " + S.banlog.slice(0, 3).map(function(l) {
+			return esc(l.t + " " + l.who + " " + l.what);
+		}).join(" / ") + "</p>";
+		return h;
+	}
+	function autoHideCheck(p) {
+		var n = S.reports.filter(function(x) {
+			return x.post === p.id && x.status === "접수";
+		}).length;
+		if (n < 3 || p.hidden) return false;
+		p.hidden = true;
+		p.autoHidden = true;
+		S.ops.forEach(function(o) {
+			notify(o.id, "‘" + p.title + "’ 신고가 " + n + "건 누적되어 임시 숨김 처리했습니다. 신고 처리에서 확인해 주세요.", "신고 누적 자동 숨김", { root: "op-reports" });
+		});
+		notify(p.owner, "‘" + p.title + "’이 신고 누적으로 임시 숨김 처리되었습니다. 운영자 확인 뒤 다시 공개되거나 내려갑니다.", "신고 누적 자동 숨김");
+		return true;
 	}
 	function unread() {
 		return S.me ? S.notifs.filter(function(n) {
@@ -2205,6 +2287,12 @@ function boot() {
 						h += "<div class=\"line2" + (SKIN !== "0" ? " bkrow\">" + BK(b, "bk-xs") : "\">") + "<span style=\"font-size:13px;min-width:0;flex:1 1 auto\">" + esc(b.title) + "&nbsp; " + esc(b.author) + " · " + esc(b.pub) + (b.ok ? "" : " " + TAG("미확인")) + "</span>" + (b.ok ? "<button class=\"textlink\" style=\"font-weight:400\" type=\"button\" data-act=\"go\" data-to=\"fix\" data-id=\"" + b.id + "\">정정 요청</button>" : "") + "</div>";
 					});
 					if (!count(code, "sale", "대기중")) h += "<div class=\"shortcuts\">" + TAG("매물 없음", "none") + "<span>신품은 학교 서점 등 시스템 밖 경로</span></div>";
+					var ws = S.wants.filter(function(w) {
+						return w.course === code && w.status === "구하는 중";
+					});
+					if (ws.length || isStu()) h += "<div class=\"shortcuts wants\">" + (ws.length ? TAG("구해요 " + ws.length, "pub") + "<span>" + esc(ws.slice(0, 3).map(function(w) {
+						return nick(w.by) + (w.price ? " " + won(w.price) : "");
+					}).join(" · ")) + "</span>" : "") + (isStu() ? "<button type=\"button\" class=\"textlink\" data-act=\"go\" data-to=\"want\" data-code=\"" + code + "\">구해요 올리기</button>" : "") + "</div>";
 				} else h += "<button class=\"note warn\" type=\"button\" data-act=\"go\" data-to=\"supplement\" data-code=\"" + code + "\">교재 정보 없음 · 보완하기</button>";
 				if (!postsOf(code).length) h += "<p class=\"small\">해당 과목의 자료가 없습니다.</p>";
 				h += "<div class=\"shortcuts jumps\">" + [
@@ -2431,11 +2519,22 @@ function boot() {
 			var bs = books(val("sell", "course", myCodes()[0] || ""), true);
 			return H1("교재 매물 올리기") + FORM("sell", SEL("sell", "course", "과목 *", courseOpts(), { re: 1 }) + SEL("sell", "book", "교재 *", bs.map(function(b) {
 				return [b.id, b.title + " · " + b.author];
-			}), { hint: "기준 정보에 등록된 교재 중에서만 고를 수 있습니다." }) + F("sell", "price", "희망 가격 *", {
+			}), { hint: "기준 정보에 등록된 교재 중에서만 고를 수 있습니다.", re: 1 }) + PRICEREF(val("sell", "course", myCodes()[0] || ""), bs) + F("sell", "price", "희망 가격 *", {
 				unit: "원",
 				mode: "numeric",
 				hint: "0원이면 무료로 넘깁니다."
 			}) + CHIPS("sell", "cond", "책 상태", ["상", "중"], "상") + CHIPS("sell", "notes", "필기 여부", ["없음", "있음"], "없음") + F("sell", "place", "거래 희망 장소 *", { ph: "장소 입력" }) + (SKIN !== "0" ? PHOTOPICK() : "<div class=\"field\"><span class=\"lab\">사진</span>" + FILEBOX("sell", "photo", val("sell", "photo", "p1_표지.jpg")) + "</div>") + SUBMIT("올리기"), "tight");
+		}
+	};
+	SC.want = {
+		scr: "07",
+		name: "구해요 등록 (v2)",
+		nav: "home",
+		r: function(a) {
+			var code = a.code || myCodes()[0] || "", bs = books(code, true);
+			return H1("구해요 올리기") + "<p class=\"p\">" + esc(cname(code)) + " · 기준 정보의 교재 중에서 고릅니다. 같은 교재 매물이 올라오면 알림으로 알려 드립니다.</p>" + FORM("want", SEL("want", "book", "교재 *", bs.map(function(b) {
+				return [b.id, b.title + " · " + b.author];
+			})) + F("want", "price", "희망 가격 (선택)", { unit: "원", mode: "numeric", hint: "비우면 ‘협의’로 표시됩니다." }) + F("want", "memo", "메모 (선택)", { ph: "예: 필기 있어도 괜찮아요" }) + SUBMIT("구해요 올리기"), "tight");
 		}
 	};
 	SC.editpost = {
@@ -2529,7 +2628,7 @@ function boot() {
 			}), n = unread();
 			var h = H1("내 거래") + "<button type=\"button\" class=\"card\" data-act=\"go\" data-to=\"notifs\"><span class=\"line2\"><span style=\"font-size:14px;font-weight:600\">알림</span>" + (n ? TAG("새 알림 " + n, "red") : "<span class=\"small\">새 알림 없음</span>") + "</span></button>";
 			h += UPCOMING("deals");
-			if (!mine.length && !asked.length) return h + "<div class=\"empty\">" + MS("pose-polite") + "<b>등록하거나 신청한 거래가 없습니다</b><p class=\"small\">교재를 올리거나 내 과목 자료에서 매물을 찾아 신청해 보세요.</p><div class=\"btnrow split\">" + B("올리기", "root", "", " data-to=\"upload\"") + B("자료 찾기", "root", "line", " data-to=\"home\"") + "</div></div>" + LIKED(me);
+			if (!mine.length && !asked.length) return h + "<div class=\"empty\">" + MS("pose-polite") + "<b>등록하거나 신청한 거래가 없습니다</b><p class=\"small\">교재를 올리거나 내 과목 자료에서 매물을 찾아 신청해 보세요.</p><div class=\"btnrow split\">" + B("올리기", "root", "", " data-to=\"upload\"") + B("자료 찾기", "root", "line", " data-to=\"home\"") + "</div></div>" + WANTS(me) + LIKED(me);
 			h += "<p class=\"sec\">내가 올린 게시글</p>";
 			if (!mine.length) h += "<p class=\"small\">올린 게시글이 없습니다.</p>";
 			mine.forEach(function(p) {
@@ -2569,7 +2668,7 @@ function boot() {
 				if (r.status === "취소") h += "<p class=\"small\">취소 사유: " + esc(r.reason) + "</p>";
 				h += "</div>";
 			});
-			h += LIKED(me);
+			h += WANTS(me) + LIKED(me);
 			return h;
 		}
 	};
@@ -2630,7 +2729,7 @@ function boot() {
 			if (!list.length) return h + "<div class=\"empty\">" + MS("pose-best") + "<b>처리할 신고가 없습니다</b><p class=\"small\">새 신고가 접수되면 오래된 순으로 표시됩니다.</p></div>";
 			h += "<p class=\"small\">" + tab + " " + list.length + "건 · 오래된 순</p>";
 			list.forEach(function(r) {
-				var body = "<span class=\"line2\"><span class=\"ctitle\">" + esc(post(r.post).title) + "</span><span class=\"ddtags\">" + (r.status === "접수" ? DD(tsOf(r) + 3 * DAY, "처리 기한") : "") + stTag(r.status) + "</span></span>" + KV("신고 사유", r.reason) + KV("접수", r.at) + (r.status === "처리완료" ? KV("조치", r.action) + KV("처리 사유", r.why) + KV("처리자 · 처리 시각", r.handler + " · " + r.handledAt) : "");
+				var body = "<span class=\"line2\"><span class=\"ctitle\">" + esc(post(r.post).title) + "</span><span class=\"ddtags\">" + (r.status === "접수" ? DD(tsOf(r) + 3 * DAY, "처리 기한") : "") + (post(r.post).autoHidden ? TAG("누적 임시 숨김", "danger") : "") + stTag(r.status) + "</span></span>" + KV("신고 사유", r.reason) + KV("접수", r.at) + (r.status === "처리완료" ? KV("조치", r.action) + KV("처리 사유", r.why) + KV("처리자 · 처리 시각", r.handler + " · " + r.handledAt) : "");
 				h += "<div class=\"card\">" + body + (r.status === "접수" ? "<div class=\"btnrow\">" + B("처리", "go", "sm", " data-to=\"op-report\" data-id=\"" + r.id + "\"") + "</div>" : "") + "</div>";
 			});
 			return h;
@@ -2710,6 +2809,7 @@ function boot() {
 				var b = books(c.code, true)[0];
 				return "<button type=\"button\" data-act=\"base-edit\" data-code=\"" + c.code + "\"><span style=\"min-width:0\"><b style=\"font-weight:600\">" + esc(cname(c.code)) + "</b><br><span class=\"small\">" + esc(c.profs.join(", ")) + " 교수 · " + esc(b ? b.title : "교재 정보 없음") + "</span></span><span class=\"linkbtn\">수정</span></button>";
 			}).join("") + "</div>";
+			h += BANDICT();
 			return h;
 		}
 	};
@@ -3044,6 +3144,7 @@ function boot() {
 		if (S.code && !S.code.used) h += "<div class=\"hrow\"><span>학교 메일함 대신 보여 주는 인증코드</span><code>" + S.code.code + "</code></div>";
 		if (c.s === "note") h += "<div class=\"hrow\"><span>시연용 파일 넣기</span>" + hb("정리노트.pdf · 2MB", "file-ok") + hb("중간고사 족보.pdf · 2MB", "file-ban") + hb("lecture_week3.pptx · 25MB", "file-big") + "</div>";
 		h += "<div class=\"hrow\"><span>시간 넘기기 (잠금 10분, 인증코드 10분, 약속 기한 7일)</span>" + hb("+10분", "t-10m") + hb("+7일", "t-7d") + "</div>";
+		h += "<div class=\"hrow\"><span>v2 재현</span>" + hb("신고 3건 누적 → 자동 숨김", "sim-reports3") + hb("구해요 예시 (서윤 · BIZ301)", "sim-want") + "</div>";
 		h += "<div class=\"hrow\"><span>실패 상황 만들기</span>" + hb("자료 유형 확인 실패", "sim-type", S.sim.typeFail) + hb("거래 상태 불러오기 실패", "sim-status", S.sim.statusFail) + "</div>";
 		h += "<div class=\"hrow\">" + hb("처음 상태로", "reset") + "</div></div>";
 		var MOT = [
@@ -3062,7 +3163,7 @@ function boot() {
 			return "<figure><img src=\"" + MASCOT[m[0]] + "\" alt=\"\"><figcaption>" + m[1] + "<small>" + m[2] + "</small></figcaption></figure>";
 		}).join("") + "</div><p class=\"gsmall\">표정·포즈마다 뜻을 하나로 고정하고, 한 화면에 하나만 씁니다. 매물 카드와 목록에는 넣지 않고, 화남 표정과 운동 포즈는 쓰지 않습니다. 색은 마스코트 파랑 #0057A7 · 남색 #162B49에 맞췄습니다.</p></div>";
 		h += "<div class=\"gcard\"><h2>시연 계정</h2><p class=\"gsmall\">수강생 <code>minji@" + DOMAIN + "</code> <code>doyun@" + DOMAIN + "</code> 비밀번호 <code>demo1234</code><br>운영자 <code>op01</code> 비밀번호 <code>admin1234</code></p><p class=\"gsmall\">학교 도메인 <code>" + DOMAIN + "</code>은 시연용 예시입니다.</p></div>";
-		h += "<details><summary>알아둘 점</summary><ul><li>로그인 화면에는 시연 계정(민지, 운영자 op01)이 미리 채워져 있습니다. 지우고 다른 값을 넣어도 됩니다.</li><li>입력한 내용은 이 화면 안에서만 유지되고, 새로 고치면 처음으로 돌아갑니다.</li><li>메일 발송, 파일 저장, 결제는 실제로 일어나지 않습니다. 인증코드는 인증코드 입력 화면과 위 도우미에 표시됩니다.</li><li>과목·교재·게시글은 Figma 화면에 나온 예시만 넣었습니다.</li><li>Figma에 없는 추가: 로그인 없이 둘러보기, 하단 메뉴의 새 알림 점, 운영자 접속 기록, 기준 정보의 과목 목록, 이 도우미.</li><li>v2에서 더한 것: 학교 마스코트, 알림 받는 기준 토글(내 과목 새 매물 · 약속/기한 하루 전 리마인드), 약속·확정 기한 D-day, 홈과 내 거래의 ‘다가오는 약속’ 카드, 홈 요약 카드(대기중 매물·진행 중 거래·새 알림), 알림 ‘모두 읽음’과 오늘/이전 묶음, 알림을 누르면 관련 화면으로 이동, 잠금 화면의 ‘약속 리마인드’ 시나리오, 계정별 찜과 찜 매물 변경 알림(예약중·거래완료·대기중 복귀·가격 변경), 거래 후기 한 줄(판매자 카드에 횟수로 표시), 운영자 신고 처리 기한 D-day와 요약 카드(처리 목표 3일은 프로토타입 가정), 수강 과목의 ‘대기중 매물 n’ 배지. 알림 기준과 D-day는 RTM v10에 없는 기능이라 발표 뒤 요구사항 반영을 검토합니다.</li><li>위쪽의 ‘개선안’은 정돈된 실용형(A안)입니다: 홈에만 브랜드 머리, 나머지 화면은 뒤로 가기 + 큰 제목, 게시글 상세의 표지·큰 가격·하단 고정 버튼, 거래 진행 단계(대기중 → 신청 → 예약중 → 거래완료), 상태 색 고정(대기중 초록 · 신청 파랑 · 예약중·접수 주황 · 완료 회색 · 숨김 빨강), 글자·버튼 크기 기준. ‘Figma 원안’은 Figma 프로토타입의 네이비 색과 카드 모양 그대로입니다.</li><li>‘Android / iOS’는 Figma의 두 벌 화면(iOS: 상태바 47pt, 탭바 83pt, 버튼 50pt)을 따라 기기 틀을 바꿉니다. 상태바 시각은 ‘시간 넘기기’를 따라 움직입니다.</li><li>거래 신청은 Figma 흐름 1 순서(팝업 → 신청 보내는 중 → 거래를 신청했습니다 → 팝업 닫힘 → 스낵바 → 신청 중)대로 진행됩니다.</li><li>교재 표지와 사진은 실제 책을 찍은 것이 아니라 화면 안에서 그린 그림입니다(교재·출판사·사람 이름은 예시). 매물을 올릴 때 직접 고른 사진은 그대로 표시됩니다.</li><li>좋아요(M-05)는 Figma 게시글 상세에 있으나 대응 요구사항이 확인되지 않아 화면 안에서만 표시되고 저장되지 않습니다.</li></ul></details>";
+		h += "<details><summary>알아둘 점</summary><ul><li>로그인 화면에는 시연 계정(민지, 운영자 op01)이 미리 채워져 있습니다. 지우고 다른 값을 넣어도 됩니다.</li><li>입력한 내용은 이 화면 안에서만 유지되고, 새로 고치면 처음으로 돌아갑니다.</li><li>메일 발송, 파일 저장, 결제는 실제로 일어나지 않습니다. 인증코드는 인증코드 입력 화면과 위 도우미에 표시됩니다.</li><li>과목·교재·게시글은 Figma 화면에 나온 예시만 넣었습니다.</li><li>Figma에 없는 추가: 로그인 없이 둘러보기, 하단 메뉴의 새 알림 점, 운영자 접속 기록, 기준 정보의 과목 목록, 이 도우미.</li><li>v2에서 더한 것: 학교 마스코트, 알림 받는 기준 토글(내 과목 새 매물 · 약속/기한 하루 전 리마인드), 약속·확정 기한 D-day, 홈과 내 거래의 ‘다가오는 약속’ 카드, 홈 요약 카드(대기중 매물·진행 중 거래·새 알림), 알림 ‘모두 읽음’과 오늘/이전 묶음, 알림을 누르면 관련 화면으로 이동, 잠금 화면의 ‘약속 리마인드’ 시나리오, 계정별 찜과 찜 매물 변경 알림(예약중·거래완료·대기중 복귀·가격 변경), 거래 후기 한 줄(판매자 카드에 횟수로 표시), 운영자 신고 처리 기한 D-day와 요약 카드(처리 목표 3일은 프로토타입 가정), 수강 과목의 ‘대기중 매물 n’ 배지, 구해요 글(같은 교재 매물이 올라오면 알림), 올리기 화면의 가격 참고선, 운영자 금지어 사전(바꾸면 바로 적용), 같은 글에 신고 3건이면 임시 숨김 + 운영자 알림. 알림 기준과 D-day는 RTM v10에 없는 기능이라 발표 뒤 요구사항 반영을 검토합니다.</li><li>위쪽의 ‘개선안’은 정돈된 실용형(A안)입니다: 홈에만 브랜드 머리, 나머지 화면은 뒤로 가기 + 큰 제목, 게시글 상세의 표지·큰 가격·하단 고정 버튼, 거래 진행 단계(대기중 → 신청 → 예약중 → 거래완료), 상태 색 고정(대기중 초록 · 신청 파랑 · 예약중·접수 주황 · 완료 회색 · 숨김 빨강), 글자·버튼 크기 기준. ‘Figma 원안’은 Figma 프로토타입의 네이비 색과 카드 모양 그대로입니다.</li><li>‘Android / iOS’는 Figma의 두 벌 화면(iOS: 상태바 47pt, 탭바 83pt, 버튼 50pt)을 따라 기기 틀을 바꿉니다. 상태바 시각은 ‘시간 넘기기’를 따라 움직입니다.</li><li>거래 신청은 Figma 흐름 1 순서(팝업 → 신청 보내는 중 → 거래를 신청했습니다 → 팝업 닫힘 → 스낵바 → 신청 중)대로 진행됩니다.</li><li>교재 표지와 사진은 실제 책을 찍은 것이 아니라 화면 안에서 그린 그림입니다(교재·출판사·사람 이름은 예시). 매물을 올릴 때 직접 고른 사진은 그대로 표시됩니다.</li><li>좋아요(M-05)는 Figma 게시글 상세에 있으나 대응 요구사항이 확인되지 않아 화면 안에서만 표시되고 저장되지 않습니다.</li></ul></details>";
 		guide.innerHTML = h;
 	}
 	function collect(form) {
@@ -3371,6 +3472,9 @@ function boot() {
 			}).forEach(function(e) {
 				notify(e.u, "내 과목 " + cname(code) + "에 교재 매물 ‘" + p.title + "’ " + won(p.price) + "이 올라왔습니다.", "새 매물", { go: "post", id: p.id });
 			});
+			S.wants.forEach(function(w) {
+				if (w.status === "구하는 중" && w.course === code && w.title === p.title && w.by !== S.me.id) notify(w.by, "구해요로 올린 ‘" + p.title + "’ 매물이 올라왔습니다 · " + won(p.price) + " · 판매자 " + nick(S.me.id), "구해요 매칭", { go: "post", id: p.id });
+			});
 			root("post", { id: p.id });
 			flash("snack", {
 				text: "게시글을 올렸습니다. 대기중으로 표시됩니다.",
@@ -3397,6 +3501,46 @@ function boot() {
 			if (e) e.code = to;
 			S.modal = null;
 			delete S.vals.editcourse;
+		},
+		want: function(v) {
+			var code = cur().p.code || myCodes()[0], bs = books(code, true), b = find(bs, function(x) {
+				return String(x.id) === String(v.book);
+			}) || bs[0], price = String(v.price || "").trim();
+			if (!b) {
+				S.err.book = REQUIRED;
+				return;
+			}
+			if (price && priceErr(price)) S.err.price = priceErr(price);
+			var hit = bannedHits(String(v.memo || ""));
+			if (hit.length) S.err.memo = "금지어(" + hit.join(", ") + ")가 있어 저장하지 않았습니다.";
+			if (find(S.wants, function(w) {
+				return w.by === S.me.id && w.course === code && w.title === b.title && w.status === "구하는 중";
+			})) S.err.book = "이미 구해요를 올린 교재입니다.";
+			if (Object.keys(S.err).length) return;
+			S.wants.push({ id: S.n++, course: code, title: b.title, by: S.me.id, price: price ? Number(price) : 0, memo: String(v.memo || "").trim(), at: fmt(now()), status: "구하는 중" });
+			root("home");
+			flash("snack", {
+				text: "구해요를 올렸습니다. 매물이 올라오면 알림으로 알려 드립니다.",
+				to: "deals"
+			});
+		},
+		ban: function(v) {
+			var gi = Number(v.g || 0), w = normWords(v.word);
+			if (!w) {
+				S.err.word = REQUIRED;
+				return;
+			}
+			if (S.banned.some(function(g) {
+				return g.w.indexOf(w) >= 0;
+			})) {
+				S.err.word = "이미 사전에 있는 낱말입니다.";
+				return;
+			}
+			S.banned[gi].w.push(w);
+			S.banlog.unshift({ t: fmt(now()), who: S.me.id, what: "+" + w + " (" + S.banned[gi].g + ")" });
+			delete S.vals.ban.word;
+			S.keep = true;
+			flash("toast", "금지어 ‘" + w + "’을(를) 추가했습니다. 바로 적용됩니다.");
 		},
 		editpost: function(v) {
 			var p = post(cur().p.id), price = String(v.price || "").trim(), place = String(v.place || "").trim(), pe = priceErr(price);
@@ -3522,6 +3666,7 @@ function boot() {
 				t: now(),
 				status: "접수"
 			});
+			autoHideCheck(p);
 			S.modal = null;
 			delete S.vals.report;
 			flash("toast", "신고가 접수되었습니다");
@@ -3539,7 +3684,14 @@ function boot() {
 			r.why = why;
 			r.handler = S.me.id;
 			r.handledAt = fmt(now());
-			if (r.action === "숨김") post(r.post).hidden = true;
+			var rp = post(r.post);
+			if (r.action === "숨김") {
+				rp.hidden = true;
+				rp.autoHidden = false;
+			} else if (rp.autoHidden) {
+				rp.hidden = false;
+				rp.autoHidden = false;
+			}
 			notify(r.by, "신고하신 게시글이 처리되었습니다: " + r.action, "신고 처리 결과");
 			back();
 		},
@@ -3931,6 +4083,27 @@ function boot() {
 				}
 			});
 			root("deals");
+		} else if (a === "want-close") {
+			var wc = find(S.wants, function(x) {
+				return x.id === id;
+			});
+			if (wc) wc.status = "마감";
+			S.keep = true;
+			flash("toast", "구해요를 마감했습니다");
+		} else if (a === "ban-del") {
+			var gi = Number(b.getAttribute("data-g"));
+			S.banned[gi].w = S.banned[gi].w.filter(function(x) {
+				return x !== v;
+			});
+			S.banlog.unshift({ t: fmt(now()), who: me, what: "−" + v });
+			S.keep = true;
+		} else if (a === "ban-reset") {
+			S.banned = BANNED.map(function(x) {
+				return { g: x.g, w: x.w.slice() };
+			});
+			S.banlog.unshift({ t: fmt(now()), who: me, what: "기본값 복원" });
+			S.keep = true;
+			flash("toast", "금지어 사전을 기본값으로 되돌렸습니다");
 		} else if (a === "rv-tag") {
 			if (!S.rv || S.rv.id !== id) S.rv = { id, tags: [] };
 			var ti = S.rv.tags.indexOf(v);
@@ -4355,6 +4528,21 @@ function boot() {
 			S.keep = true;
 		} else if (h === "t-7d") {
 			S.clock += 7 * DAY;
+			S.keep = true;
+		} else if (h === "sim-reports3") {
+			var p3 = post(3);
+			if (p3) ["harin", "seoyun", "minji"].forEach(function(u) {
+				if (!find(S.reports, function(x) {
+					return x.post === 3 && x.by === u;
+				})) S.reports.push({ id: S.n++, post: 3, by: u, reason: REASONS[1], desc: "", at: fmt(now()), t: now(), status: "접수" });
+			});
+			if (p3) autoHideCheck(p3);
+			S.keep = true;
+		} else if (h === "sim-want") {
+			var wb = books("BIZ301", true)[0];
+			if (wb && !find(S.wants, function(w) {
+				return w.by === "seoyun" && w.course === "BIZ301" && w.status === "구하는 중";
+			})) S.wants.push({ id: S.n++, course: "BIZ301", title: wb.title, by: "seoyun", price: 12000, memo: "필기 있어도 괜찮아요", at: fmt(now()), status: "구하는 중" });
 			S.keep = true;
 		} else if (h === "sim-type") {
 			S.sim.typeFail = !S.sim.typeFail;
