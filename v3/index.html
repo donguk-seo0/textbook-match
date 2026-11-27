@@ -1056,6 +1056,13 @@ html.app .composer-wrap { padding-bottom: calc(14px + env(safe-area-inset-bottom
 .composer input::placeholder { color: #7F8FAA; }
 .composer button { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--navy); color: #fff; flex: 0 0 auto; }
 .composer button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* ═════ 한국어 줄바꿈: 단어 중간에서 끊지 않기, 제목은 줄 길이를 고르게 ═════ */
+body, .phone, .guide, .dpanel, .dbar { word-break: keep-all; overflow-wrap: break-word; line-break: strict; }
+.phone .h1, .phone .h2, .phone .hello, .phone .ctitle, .phone .tile .tt, .phone .cname, .guide h1, .guide h2, .pop h2, .sheet h2, .modal h2, .phone .empty b, .phone .lmsg b { text-wrap: balance; }
+.phone p, .phone .p, .phone .small, .phone .note, .phone small, .phone .bubble, .phone .rvsum, .guide p, .guide li, .gsmall { text-wrap: pretty; }
+.card.upnext { flex-direction: row; }
+.card.upnext .grow { flex: 1 1 auto; }
+.card.upnext .dd { flex: 0 0 auto; }
 </style>
 <div class="topbar">
   <div class="ptools" id="ptools">
@@ -6005,6 +6012,4 @@ function boot() {
 }
 boot();
 </script>
-
-</body>
-</html>
+</body></html>
