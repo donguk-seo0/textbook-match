@@ -1070,6 +1070,8 @@ body, .phone, .guide, .dpanel, .dbar { word-break: keep-all; overflow-wrap: brea
 @keyframes dtagin { from { opacity: 0; transform: translateY(5px); } }
 @keyframes dtagin2 { from { opacity: 0; transform: translateY(-5px); } }
 @media (prefers-reduced-motion: reduce) { .dbox .dtag.in { animation: none; } }
+/* ═════ 휴대폰 틀 비율 고정: 390×844, 창이 낮거나 좁으면 zoom 으로 통째로 줄임 (휴대폰 전체 화면 모드는 제외) ═════ */
+html:not(.app) .phone { width: 390px; max-width: none; height: 844px; min-height: 0; }
 </style>
 <div class="topbar">
   <div class="ptools" id="ptools">
@@ -5567,7 +5569,8 @@ function boot() {
 				if (orr.height && orr.top > br.top + br.height / 2 && orr.top < bot) bot = orr.top - 10;
 			});
 			if (r.top < top || r.bottom > bot) {
-				var want = r.height > bot - top ? body.scrollTop + r.top - top : body.scrollTop + (r.top + r.height / 2) - (top + bot) / 2;
+				var k = br.height / (body.clientHeight || br.height) || 1;
+				var want = body.scrollTop + (r.height > bot - top ? r.top - top : (r.top + r.height / 2) - (top + bot) / 2) / k;
 				body.scrollTo({ top: Math.max(0, want), behavior: "smooth" });
 				await dscrolled(body);
 			}
@@ -5906,6 +5909,24 @@ function boot() {
 		document.documentElement.classList.toggle("app", on && location.hash !== "#embed");
 	}
 	syncAppMode();
+	/* 넓은 화면: 틀은 항상 390×844 비율, 창에 다 들어가지 않으면 통째로 줄인다 (세로만 줄어 납작해지지 않게) */
+	function fitPhone() {
+		if (document.documentElement.classList.contains("app")) {
+			if (app.style.zoom) app.style.zoom = "";
+			return;
+		}
+		var st = app.parentElement, cs = getComputedStyle(st);
+		var availH = window.innerHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+		var availW = st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+		var z = Math.max(.4, Math.min(1, availH / 844, availW / 390));
+		var v = z < .999 ? String(Math.round(z * 1000) / 1000) : "";
+		if (app.style.zoom !== v) app.style.zoom = v;
+	}
+	fitPhone();
+	window.addEventListener("resize", fitPhone);
+	if (window.ResizeObserver) new ResizeObserver(fitPhone).observe(document.documentElement);
+	new MutationObserver(fitPhone).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+	new MutationObserver(fitPhone).observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 	if (appMQ.addEventListener) appMQ.addEventListener("change", syncAppMode);
 	else if (appMQ.addListener) appMQ.addListener(syncAppMode);
 	window.addEventListener("hashchange", syncAppMode);
