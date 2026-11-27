@@ -1063,6 +1063,13 @@ body, .phone, .guide, .dpanel, .dbar { word-break: keep-all; overflow-wrap: brea
 .card.upnext { flex-direction: row; }
 .card.upnext .grow { flex: 1 1 auto; }
 .card.upnext .dd { flex: 0 0 auto; }
+/* ═════ 자동 시연 다듬기: 박스가 대상을 따라가고, 라벨은 박스가 도착할 때 나타난다 ═════ */
+.dbox.track, .dcur.track { transition: opacity .25s linear; }
+.dbox .dtag.in { animation: dtagin .26s cubic-bezier(.22, .8, .24, 1) .18s both; }
+.dbox.below .dtag.in { animation-name: dtagin2; }
+@keyframes dtagin { from { opacity: 0; transform: translateY(5px); } }
+@keyframes dtagin2 { from { opacity: 0; transform: translateY(-5px); } }
+@media (prefers-reduced-motion: reduce) { .dbox .dtag.in { animation: none; } }
 </style>
 <div class="topbar">
   <div class="ptools" id="ptools">
@@ -5462,8 +5469,53 @@ function boot() {
 			})();
 		});
 	}
-	function dplace(el, label) {
+	/* 박스가 짚은 대상을 계속 따라간다 (스크롤 · 화면 밀림 · 다시 그리기). 대상이 사라지면 박스만 숨긴다 */
+	var dtrack = { sel: null, el: null, L: 0, T: 0, W: 0, H: 0, until: 0, miss: 0 };
+	function dcurAt(r) {
+		return "translate(" + (r.left + Math.min(r.width * .55, r.width - 10)) + "px," + (r.top + Math.min(r.height * .6, r.height - 6)) + "px)";
+	}
+	(function dfollow() {
+		requestAnimationFrame(dfollow);
+		if (!D.on || D.fast || !dtrack.sel || !dbox.classList.contains("on")) return;
+		var el = dq(dtrack.sel);
+		if (!el && dtrack.el && dtrack.el.isConnected) el = dtrack.el;
+		var r = el && el.getBoundingClientRect();
+		var t = performance.now();
+		if (!r || !r.height) {
+			if (!dtrack.miss) dtrack.miss = t;
+			else if (t - dtrack.miss > 220) dbox.classList.remove("on");
+			return;
+		}
+		dtrack.miss = 0;
+		dtrack.el = el;
+		var pad = 6, L = r.left - pad, T = r.top - pad, W = r.width + pad * 2, H = r.height + pad * 2;
+		if (Math.abs(L - dtrack.L) < .5 && Math.abs(T - dtrack.T) < .5 && Math.abs(W - dtrack.W) < .5 && Math.abs(H - dtrack.H) < .5) return;
+		var settled = t > dtrack.until;
+		dbox.classList.toggle("track", settled);
+		dcur.classList.toggle("track", settled);
+		dbox.style.left = L + "px";
+		dbox.style.top = T + "px";
+		dbox.style.width = W + "px";
+		dbox.style.height = H + "px";
+		dcur.style.transform = dcurAt(r);
+		dtrack.L = L; dtrack.T = T; dtrack.W = W; dtrack.H = H;
+	})();
+	function dplace(el, label, sel) {
 		var r = el.getBoundingClientRect(), pad = 6;
+		var wasOn = dbox.classList.contains("on"), moved = wasOn ? Math.hypot(r.left - pad - dtrack.L, r.top - pad - dtrack.T) : 999;
+		dbox.classList.remove("track");
+		dcur.classList.remove("track");
+		dbox.classList.toggle("ok", !!D.okNext);
+		dtrack.sel = sel || el;
+		dtrack.el = el;
+		dtrack.L = r.left - pad; dtrack.T = r.top - pad; dtrack.W = r.width + pad * 2; dtrack.H = r.height + pad * 2;
+		dtrack.until = performance.now() + 650;
+		dtrack.miss = 0;
+		if (dtag.textContent !== label || moved > 4) {
+			dtag.classList.remove("in");
+			void dtag.offsetWidth;
+			dtag.classList.add("in");
+		}
 		dbox.style.left = r.left - pad + "px";
 		dbox.style.top = r.top - pad + "px";
 		dbox.style.width = r.width + pad * 2 + "px";
@@ -5480,9 +5532,10 @@ function boot() {
 		dtag.style.right = "auto";
 		dbox.classList.add("on");
 		dcur.classList.add("on");
-		dcur.style.transform = "translate(" + (r.left + Math.min(r.width * .55, r.width - 10)) + "px," + (r.top + Math.min(r.height * .6, r.height - 6)) + "px)";
+		dcur.style.transform = dcurAt(r);
 		var now2 = dcap.querySelector(".dnow");
 		if (now2) now2.textContent = label;
+		return moved;
 	}
 	function relabel(label) {
 		dtag.textContent = label;
@@ -5490,27 +5543,44 @@ function boot() {
 		if (now2) now2.textContent = label;
 	}
 	function dhide() {
+		dtrack.sel = null;
 		dbox.classList.remove("on");
 		dcur.classList.remove("on");
+	}
+	/* 부드러운 스크롤이 실제로 멈출 때까지 기다린다 (고정 시간 대신) */
+	async function dscrolled(b) {
+		var last = -1, same = 0, t0 = Date.now();
+		while (Date.now() - t0 < 1400) {
+			await dsleep(40);
+			if (Math.abs(b.scrollTop - last) < 1) {
+				if (++same >= 3) return;
+			} else same = 0;
+			last = b.scrollTop;
+		}
 	}
 	async function show(sel, label, hold) {
 		var el = await waitFor(sel);
 		if (D.fast) return el;
-		if (Date.now() - navAt < 320) await dsleep(320);
+		if (Date.now() - navAt < 260) await dsleep(260 - (Date.now() - navAt));
+		el = dq(sel) || el;
 		var body = el.closest(".body");
 		if (body) {
-			var br = body.getBoundingClientRect(), r = el.getBoundingClientRect();
-			if (r.top < br.top + 8 || r.bottom > br.bottom - 8) {
-				el.scrollIntoView({
-					block: "center",
-					behavior: "smooth"
-				});
-				await dsleep(450);
+			var br = body.getBoundingClientRect(), r = el.getBoundingClientRect(), top = br.top + 10, bot = br.bottom - 10;
+			/* 화면 위에 떠 있는 탭 바 · 하단 버튼 줄 · 입력창에 가리는 부분은 보이지 않는 것으로 본다 */
+			Array.prototype.forEach.call(app.querySelectorAll(".nav, .ctabar, .composer-wrap"), function(o) {
+				if (o.contains(el)) return;
+				var orr = o.getBoundingClientRect();
+				if (orr.height && orr.top > br.top + br.height / 2 && orr.top < bot) bot = orr.top - 10;
+			});
+			if (r.top < top || r.bottom > bot) {
+				var want = r.height > bot - top ? body.scrollTop + r.top - top : body.scrollTop + (r.top + r.height / 2) - (top + bot) / 2;
+				body.scrollTo({ top: Math.max(0, want), behavior: "smooth" });
+				await dscrolled(body);
 			}
 		}
 		D.last = [sel, label];
-		dplace(dq(sel) || el, label);
-		await dsleep(720);
+		var moved = dplace(dq(sel) || el, label, sel);
+		await dsleep(moved < 6 ? 240 : moved < 140 ? 480 : 640);
 		await dsleep(hold == null ? 900 : hold);
 		return dq(sel) || el;
 	}
@@ -5527,8 +5597,13 @@ function boot() {
 			}, 700);
 			await dsleep(160);
 		}
+		var nav0 = navAt;
 		(dq(sel) || el).click();
-		await dsleep(hold == null ? 700 : hold);
+		if (navAt !== nav0 && !D.fast) {
+			dtrack.sel = null;
+			dbox.classList.remove("on");
+		}
+		await dsleep(hold == null ? 600 : hold);
 	}
 	async function typeIn(sel, text, label) {
 		var el = await show(sel, label, 150);
@@ -5538,9 +5613,9 @@ function boot() {
 		for (var i = 0; i < text.length; i++) {
 			el.value += text.charAt(i);
 			el.dispatchEvent(new Event("input", { bubbles: true }));
-			await dsleep(75);
+			await dsleep(65);
 		}
-		await dsleep(450);
+		await dsleep(350);
 	}
 	/* 시험 근거: 규칙이 작동한 화면을 초록 박스로 짚고, 오른쪽 설명에 시험 번호와 결과를 남긴다 */
 	function stamp(tc, what) {
@@ -5559,24 +5634,30 @@ function boot() {
 		var el = await waitFor(sel);
 		if (D.fast) return el;
 		stamp(tc, what);
-		dbox.classList.add("ok");
+		D.okNext = true;
 		try {
-			await show(sel, "✓ " + tc + " 통과 · " + what, hold == null ? 1400 : hold);
+			await show(sel, "✓ " + tc + " 통과 · " + what, hold == null ? 1150 : hold);
 		} finally {
+			D.okNext = false;
 			dbox.classList.remove("ok");
 		}
 		return el;
 	}
-	async function cut(kicker, title, sub, hold) {
-		if (D.fast) return;
+	async function cut(kicker, title, sub, hold, during) {
+		if (D.fast) {
+			if (during) during();
+			return;
+		}
 		dhide();
 		dscene.querySelector("small").textContent = kicker;
 		dscene.querySelector("b").textContent = title;
 		dscene.querySelector("span").textContent = sub || "";
 		dscene.classList.add("on");
-		await dsleep(hold || 1700);
+		await dsleep(340);
+		if (during) during();
+		await dsleep(Math.max(0, (hold || 1500) - 340));
 		dscene.classList.remove("on");
-		await dsleep(300);
+		await dsleep(280);
 	}
 	function switchTo(id, op, to) {
 		clearLock();
@@ -5610,10 +5691,10 @@ function boot() {
 				await dsleep(400);
 				await typeIn("#f-code", "BIZ220", "과목코드 입력 · 마케팅원론");
 				await tap("form[data-form=courses] button[type=submit]", "등록", 500);
-				await pass(cardWith(/마케팅원론/), "TC-022-1", "과목코드 등록 → 내 수강 과목에 추가", 1200);
+				await pass(cardWith(/마케팅원론/), "TC-022-1", "과목코드 등록 → 내 수강 과목에 추가", 950);
 				await tap(".nav [data-to=home]", "홈 · 내 과목 자료", 500);
 				await show(cardWith(/마케팅원론/), "방금 등록한 과목 · 교재 정보가 바로 표시", 1200);
-				await pass(".card.course .jumps", "TC-024-1", "검색어 없이 과목별 매물 · 정리본 · 공개 자료 수 표시", 1300);
+				await pass(".card.course .jumps", "TC-024-1", "검색어 없이 과목별 매물 · 정리본 · 공개 자료 수 표시", 1050);
 				await tap(".newrow [data-act=open][data-id=\"3\"]", "내 과목 매물 열기", 500);
 			}
 		},
@@ -5628,7 +5709,9 @@ function boot() {
 				await tap(".ctabar [data-act=ask-apply]", "거래 신청", 300);
 				await show(".overlay:not(.out) .popup", "신청 내용 확인", 800);
 				await tap("#pop-ok", "신청 보내기", 0);
+				await show(".overlay:not(.out) .popup.status", "신청 보내는 중", 0);
 				await waitFor(".bigcheck");
+				relabel("신청 완료 · 판매자에게 알림");
 				await waitFor(".snack:not(.out)");
 				await pass(".stepper", "TC-006-1", "신청하면 진행 단계가 ‘신청’으로 바뀜");
 			}
@@ -5651,7 +5734,7 @@ function boot() {
 				await typeIn("#f-price", "12000", "희망 가격");
 				await typeIn("#f-place", "학생회관", "거래 장소");
 				await tap("form[data-form=sell] button[type=submit]", "올리기", 500);
-				await pass(".price", "TC-007-1", "기준 정보의 교재로 매물 등록 → 대기중", 1400);
+				await pass(".price", "TC-007-1", "기준 정보의 교재로 매물 등록 → 대기중", 1150);
 			}
 		},
 		{
@@ -5677,7 +5760,7 @@ function boot() {
 				await show(".body .spinner", "저장 전에 금지 자료인지 판정 중", 200);
 				await waitFor(".body .sec");
 				await show(".body .card", "등록 차단 · 감지 내용 → 이유 → 대체 경로", 1200);
-				await pass(".body .card", "TC-010-2", "‘족보’가 들어간 파일은 저장하지 않음 (게시글 수 변화 0)", 1600);
+				await pass(".body .card", "TC-010-2", "‘족보’가 들어간 파일은 저장하지 않음 (게시글 수 변화 0)", 1350);
 			}
 		},
 		{
@@ -5686,12 +5769,13 @@ function boot() {
 			tc: ["TC-035-1"],
 			d: "판매자 도윤의 내 거래에 민지의 신청이 와 있습니다. 한 건만 수락할 수 있고, 수락하면 매물은 예약중이 되며 7일 안에 약속을 확정해야 합니다.",
 			run: async function() {
-				await cut("장면 전환", "판매자 도윤의 휴대폰", "민지가 보낸 거래 신청을 확인합니다");
-				switchTo("doyun", false, "deals");
+				await cut("장면 전환", "판매자 도윤의 휴대폰", "민지가 보낸 거래 신청을 확인합니다", null, function() {
+					switchTo("doyun", false, "deals");
+				});
 				await show(".body .rowline", "민지의 거래 신청", 800);
 				await tap("[data-act=accept]", "수락", 200);
 				await waitFor(".snack:not(.out)");
-				await pass(".mini", "TC-035-1", "수락하면 매물은 예약중, 7일 안에 약속 확정", 1300);
+				await pass(".mini", "TC-035-1", "수락하면 매물은 예약중, 7일 안에 약속 확정", 1050);
 			}
 		},
 		{
@@ -5706,11 +5790,12 @@ function boot() {
 				await dsleep(400);
 				await typeIn("#f-place", "학생회관 1층 로비", "장소 입력");
 				await tap("form[data-form=deal] button[type=submit]", "약속 제안하기", 500);
-				await cut("장면 전환", "구매자 민지의 휴대폰", "도윤이 제안한 약속에 동의합니다");
-				switchTo("minji", false, "deals");
+				await cut("장면 전환", "구매자 민지의 휴대폰", "도윤이 제안한 약속에 동의합니다", null, function() {
+					switchTo("minji", false, "deals");
+				});
 				await tap("[data-to=deal]", "약속 보기", 400);
 				await tap("[data-act=agree]", "이 약속에 동의", 500);
-				await pass(".stepper", "TC-045-1", "두 사람이 같은 일시 · 장소에 동의해야 확정", 1500);
+				await pass(".stepper", "TC-045-1", "두 사람이 같은 일시 · 장소에 동의해야 확정", 1250);
 			}
 		},
 		{
@@ -5719,13 +5804,14 @@ function boot() {
 			tc: ["TC-012-1"],
 			d: "만나서 거래한 뒤 판매자가 거래 완료로 바꿉니다. 게시글의 진행 단계가 마지막까지 채워집니다.",
 			run: async function() {
-				await cut("장면 전환", "판매자 도윤의 휴대폰", "직거래를 마치고 거래 완료로 바꿉니다");
-				switchTo("doyun", false, "deals");
+				await cut("장면 전환", "판매자 도윤의 휴대폰", "직거래를 마치고 거래 완료로 바꿉니다", null, function() {
+					switchTo("doyun", false, "deals");
+				});
 				await tap("[data-to=deal]", "약속 보기", 400);
 				await tap("[data-act=ask-complete]", "거래 완료", 300);
 				await tap("#pop-ok", "거래 완료 확정", 500);
 				await tap("[data-act=open][data-id=\"3\"]", "게시글 열기", 400);
-				await pass(".stepper", "TC-012-1", "게시자가 완료하면 4단계가 모두 채워짐", 1500);
+				await pass(".stepper", "TC-012-1", "게시자가 완료하면 4단계가 모두 채워짐", 1250);
 			}
 		},
 		{
@@ -5734,15 +5820,16 @@ function boot() {
 			tc: ["TC-019-1"],
 			d: "운영자는 회원과 별개인 계정으로 접수된 신고를 오래된 순으로 처리하고, 조치와 사유를 기록합니다. 결과는 신고자에게 알림으로 갑니다.",
 			run: async function() {
-				await cut("장면 전환", "운영자 op01", "접수된 신고를 처리합니다");
-				switchTo("op01", true);
+				await cut("장면 전환", "운영자 op01", "접수된 신고를 처리합니다", null, function() {
+					switchTo("op01", true);
+				});
 				await show(".body .card", "신고 목록 · 오래된 순", 900);
 				await tap("[data-to=op-report]", "처리", 400);
 				await show("[data-act=set][data-v=\"숨김\"]", "조치 · 숨김", 400);
 				await typeIn("#f-why", "허위 매물로 확인되어 숨김 처리", "처리 사유 입력");
 				await tap("form[data-form=op-report] button[type=submit]", "처리 저장", 400);
 				await tap("[data-act=set][data-v=\"처리완료\"]", "처리완료 탭", 400);
-				await pass(".body .card", "TC-019-1", "조치 · 사유와 처리자 · 처리 시각이 함께 기록됨", 1600);
+				await pass(".body .card", "TC-019-1", "조치 · 사유와 처리자 · 처리 시각이 함께 기록됨", 1350);
 			}
 		}
 	];
@@ -5787,10 +5874,10 @@ function boot() {
 				D.scene = i;
 				if (!D.fast) {
 					dcaption(i);
-					await dsleep(500);
+					await dsleep(350);
 				}
 				await SCN[i].run();
-				if (!D.fast) await dsleep(400);
+				if (!D.fast) await dsleep(250);
 			}
 			D.fast = false;
 			await cut("시험 결과 · 2026-11-25", "시험 122건 실행 · 실패 0", "처음 실행에서 실패한 8건은 고친 뒤 다시 시험했습니다 · 통과 109 · 부분 통과 13", 3200);
