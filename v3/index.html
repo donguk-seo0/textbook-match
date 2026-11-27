@@ -10,7 +10,6 @@
 <body>
 <title>교재매칭 통합 프로토타입 v3</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700&display=swap">
 <style>
 /* 배치: 가운데 휴대폰 화면(Figma 390pt 화면 그대로) + 옆에 '입력해 볼 값' 안내. 좁은 화면에서는 휴대폰 화면이 먼저, 안내가 아래. */
 :root {
@@ -860,7 +859,7 @@ html.app .lock .lhint { white-space: nowrap; }
 .banchip button:hover { background: var(--line); color: var(--ink); }
 .shortcuts.wants { align-items: center; }
 .shortcuts.wants .textlink { margin-left: auto; }
-/* ═════ v3: iOS 26 리퀴드 글라스 탭 바 · 알림 팝업 · AI 도우미 · 도우미 채팅 (개선안 스타일에서만) ═════ */
+/* ═════ v3: iOS 26 리퀴드 글라스 탭 바 · 알림 팝업 · AI 에이전트 · 에이전트 채팅 (개선안 스타일에서만) ═════ */
 .phone.glass .body { padding-bottom: 104px; }
 .phone.glass .nav { position: absolute; left: 12px; right: 12px; bottom: 16px; height: 64px; padding: 6px; border: 0; border-radius: 32px; z-index: 6; isolation: isolate; touch-action: none; user-select: none; -webkit-user-select: none;
   background: rgba(255, 255, 255, .42); -webkit-backdrop-filter: blur(16px) saturate(1.9) brightness(1.05); backdrop-filter: blur(16px) saturate(1.9) brightness(1.05);
@@ -917,7 +916,7 @@ html.app .phone.glass .nav { bottom: calc(14px + env(safe-area-inset-bottom, 0px
 .phone[data-skin="2"] .aghead { display: flex; align-items: center; justify-content: space-between; }
 .phone[data-skin="2"] .aghead .bell { position: relative; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; color: var(--ink); }
 
-/* AI 도우미 탭 */
+/* AI 에이전트 탭 */
 .agsub { margin: -8px 0 0; font-size: 12.5px; color: var(--muted); }
 .askbar { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 10px 10px 14px; border-radius: 18px; background: #fff; box-shadow: 0 1px 2px rgba(22, 43, 73, .06), 0 6px 16px rgba(22, 43, 73, .06); text-align: left; }
 .askbar .t { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); }
@@ -1000,7 +999,7 @@ html.app .phone.glass .nav { bottom: calc(14px + env(safe-area-inset-bottom, 0px
 .agtpl small { display: block; font-size: 11.5px; line-height: 1.4; color: var(--muted); margin-top: 1px; }
 .agtpl .add { margin-left: auto; font-size: 22px; color: var(--navy); }
 
-/* 도우미 채팅 */
+/* 에이전트 채팅 */
 .chathead { position: sticky; top: -16px; z-index: 3; display: flex; align-items: center; gap: 10px; margin: -16px -16px 0; padding: 12px 16px; background: rgba(241, 245, 249, .92); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
 .chathead .t { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; }
 .mcard .mini-av { width: 30px; height: auto; flex: 0 0 auto; }
@@ -1057,73 +1056,6 @@ html.app .composer-wrap { padding-bottom: calc(14px + env(safe-area-inset-bottom
 .composer input::placeholder { color: #7F8FAA; }
 .composer button { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--navy); color: #fff; flex: 0 0 auto; }
 .composer button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-/* ═════ v3.1: 교재매칭만의 모습 — 색은 그대로, 유리 대신 종이·책 질감 (공지콕과 구분) ═════ */
-:root { --serif: "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", "Batang", serif; --paper-line: #dbe4ee; }
-/* 하단 바: 떠 있는 유리 캡슐 대신 화면에 붙은 단단한 바 + 가운데 큰 올리기 버튼 */
-.phone.glass .nav { left: 0; right: 0; bottom: 0; height: auto; padding: 6px 4px 10px; border-radius: 0; background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; border-top: 1px solid var(--paper-line); box-shadow: 0 -8px 18px -14px rgba(22, 43, 73, .3); transition: none; }
-.phone.glass .nav::before, .phone.glass .nav::after, .phone.glass .nav .lens { display: none; }
-.phone.glass .nav button { justify-content: flex-start; gap: 3px; padding-top: 6px; border-radius: 0; font-size: 11px; font-weight: 600; color: #64748b; }
-.phone.glass .nav button.on { color: var(--navy); font-weight: 750; }
-.phone.glass .nav button.on::before { content: ""; position: absolute; top: -7px; left: 50%; width: 26px; height: 3px; margin-left: -13px; border-radius: 0 0 3px 3px; background: var(--navy); }
-.phone.glass .nav button[data-to="upload"] svg { width: 50px; height: 50px; margin: -26px 0 0; padding: 13px; border-radius: 50%; background: var(--navy); color: #fff; stroke-width: 2.2; box-shadow: 0 8px 16px -6px rgba(0, 87, 167, .55), 0 0 0 4px #fff; }
-.phone.glass .nav button[data-to="upload"].on::before { display: none; }
-.phone.glass .nav button[data-to="upload"] svg rect { stroke: none; }
-.phone.glass .nav .face { width: 24px; margin: -1px 0 -1px; }
-.phone.glass .nav.mini { right: 0; }
-.phone.glass .nav.mini button:not(.on) { opacity: 1; pointer-events: auto; }
-.phone.glass .nav.mini button.on { position: relative; inset: auto; font-size: 11px; gap: 3px; }
-.phone.glass .nav.pressing button.hover svg, .phone.glass .nav.pressing button.hover .face { transform: none; }
-.phone.glass .nav .dot { top: 3px; }
-.phone.glass .body { padding-bottom: 92px; }
-html.app .phone.glass .nav { bottom: 0; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
-.phone.glass .snack, .phone.glass .demonote { bottom: 84px; }
-.phone.glass .toast { bottom: 92px; }
-.phone.glass:has(.ctabar) .snack { bottom: 162px; }
-.phone.glass .ctabar { bottom: 70px; margin: auto -16px -16px; border: 0; border-top: 1px solid var(--paper-line); border-radius: 0; box-shadow: none; }
-/* 책 제목·제목줄은 명조, 본문은 그대로 */
-.phone.glass .h1, .phone.glass .h2, .phone.glass .hello, .phone.glass .tile .tt, .phone.glass .ctitle, .phone.glass .ptitle .h1, .phone.glass .aghero h1, .phone.glass .chathead b, .phone.glass .mrow b, .phone.glass .agrun b, .phone.glass .acard b { font-family: var(--serif); letter-spacing: -.01em; }
-.phone.glass .hello { font-weight: 700; }
-.phone.glass .tile .tt { font-weight: 600; }
-/* 가격은 가격표 모양 */
-.phone.glass .tile b { align-self: flex-start; display: inline-block; margin-top: 2px; padding: 1px 9px 1px 13px; background: var(--pub-bg); color: var(--navy); font-size: 14px; border-radius: 0 4px 4px 0; clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%); }
-.phone.glass .tile .tph { box-shadow: 3px 3px 0 var(--paper-line); }
-/* 카드는 그림자 대신 얇은 선, 모서리는 작게 */
-.phone.glass .agboard, .phone.glass .agpanel, .phone.glass .acard, .phone.glass .askbar, .phone.glass .mcard { border-radius: 12px; border: 1px solid var(--paper-line); box-shadow: none; }
-.phone.glass .acard.add { border: 1.5px dashed #c5d3e3; background: transparent; }
-.phone.glass .aglass { border-radius: 10px; border: 0; background: #f1f5f9; }
-.phone.glass .aghero .aglass { border-radius: 14px; border: 1px solid var(--paper-line); }
-.phone.glass .askbar .send { border-radius: 10px; }
-.phone.glass .stack3 img { border-radius: 10px; border-color: #fff; box-shadow: none; outline: 1px solid var(--paper-line); }
-/* 홈 요약: 짙은 카드 대신 장부처럼 */
-.phone.glass .hsum { background: #fff; color: var(--ink); border: 1px solid var(--paper-line); border-top: 3px solid var(--navy); border-radius: 12px; }
-.phone.glass .hsum::before { display: none; }
-.phone.glass .hsum .hs-head { color: var(--muted); opacity: 1; }
-.phone.glass .hs-stats button { color: var(--ink); border-left-color: #e2e8f0; }
-.phone.glass .hs-stats b { color: var(--navy); font-family: var(--serif); }
-.phone.glass .hs-stats span { color: var(--muted); opacity: 1; }
-/* 확인 카드: 흰 종이에 파란 책갈피 */
-.phone.glass .approve { background: #fff; color: var(--ink); border: 1px solid var(--paper-line); border-left: 4px solid var(--navy); border-radius: 12px; }
-.phone.glass .approve::before { display: none; }
-.phone.glass .approve small { color: var(--muted); }
-.phone.glass .approve .go { background: var(--navy); border-radius: 10px; }
-.phone.glass .approve .later { background: #fff; color: var(--navy); border: 1px solid #c5d3e3; border-radius: 10px; }
-/* 알림 팝업: 유리 대신 흰 종이 */
-.phone.glass .popscrim { background: rgba(22, 43, 73, .14); }
-.phone.glass .popover { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; border: 1px solid var(--paper-line); border-radius: 14px; box-shadow: 0 18px 40px -20px rgba(22, 43, 73, .45); animation-duration: .16s; }
-.phone.glass .plist { border-radius: 10px; }
-.phone.glass .pop-foot button { border-radius: 10px; }
-/* 채팅: 둥근 거품 대신 메모지 */
-.phone.glass .chathead { background: #fff; }
-.phone.glass .bubble { border-radius: 4px 12px 12px 12px; border: 1px solid var(--paper-line); box-shadow: none; }
-.phone.glass .cmsg.me .bubble { border: 0; border-radius: 12px 4px 12px 12px; box-shadow: none; }
-.phone.glass .cmsg .av { border-radius: 10px; box-shadow: none; border: 1px solid var(--paper-line); }
-.phone.glass .cchip { border-radius: 8px; }
-.phone.glass .composer-wrap { background: linear-gradient(rgba(241, 245, 249, 0), #f1f5f9 30%); }
-.phone.glass .composer { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; border: 1px solid #c5d3e3; border-radius: 12px; box-shadow: 0 6px 16px -12px rgba(22, 43, 73, .35); }
-.phone.glass .composer::after { display: none; }
-.phone.glass .composer button { border-radius: 9px; }
-.phone.glass .aseg { border-radius: 10px; }
-.phone.glass .aseg button { border-radius: 7px; }
 </style>
 <div class="topbar">
   <div class="ptools" id="ptools">
@@ -2189,20 +2121,20 @@ function boot() {
 		S.modal = { t: "login" };
 	}
 	var SC = {};
-	/* ═════ v3: AI 도우미 · 도우미 채팅 · 알림 팝업 · 리퀴드 글라스 탭 바 (교재매칭 전용) ═════ */
+	/* ═════ v3: AI 에이전트 · 에이전트 채팅 · 알림 팝업 · 리퀴드 글라스 탭 바 (공지콕 v7 구조를 교재매칭에 맞춤) ═════ */
 	var AUTO = {
 		notify: { label: "알림만", desc: "찾은 것을 알려 주기만 해요. 행동은 모두 내가 해요." },
 		draft: { label: "초안까지", desc: "신청 메시지와 구해요 글을 준비해 두고, 보내기 전에는 나에게 물어봐요." },
 		auto: { label: "자동 실행", desc: "조건이 맞으면 묻지 않고 처리하고 기록을 남겨요. 거래 신청·약속 확정·매물 올리기는 이 단계에서도 항상 먼저 물어봐요." }
 	};
 	var AGENTS = [
-		{ id: "match", name: "매칭 도우미", role: "내 과목 새 매물과 구해요 짝을 찾아 알려 줘요", art: "dept-ai", face: "face-default", auto: "auto",
+		{ id: "match", name: "콕 매칭", role: "내 과목 새 매물과 구해요 짝을 찾아 알려 줘요", art: "dept-ai", face: "face-default", auto: "auto",
 			rules: [["내 과목에 새 매물이 올라오면 알림", "pref:newpost"], ["구해요와 같은 교재면 바로 알림", true], ["내가 올린 매물은 빼고 보기", true]] },
-		{ id: "deal", name: "거래 도우미", role: "거래 신청 메시지와 약속 후보 시간을 준비하고, 허락하면 보내요", art: "dept-business", face: "face-wink", auto: "draft",
+		{ id: "deal", name: "콕 거래", role: "거래 신청 메시지와 약속 후보 시간을 준비하고, 허락하면 보내요", art: "dept-business", face: "face-wink", auto: "draft",
 			rules: [["가장 싼 대기중 매물부터 제안", true], ["보내기 전에는 항상 확인받기", "lock"], ["수락되면 약속 후보 시간 준비", true]] },
-		{ id: "check", name: "자료 검사", role: "정리본·메모를 올리기 전에 금지어를 미리 봐 줘요", art: "act-study", face: "face-surprised", auto: "auto",
+		{ id: "check", name: "콕 검사", role: "정리본·메모를 올리기 전에 금지어를 미리 봐 줘요", art: "act-study", face: "face-surprised", auto: "auto",
 			rules: [["올리기 전에 파일명 미리 검사", true], ["금지어 사전이 바뀌면 다시 검사", true]] },
-		{ id: "remind", name: "약속 알리미", role: "약속과 확정 기한이 다가오면 미리 알려 줘요", art: "dept-energy", face: "face-smile", auto: "notify",
+		{ id: "remind", name: "콕 리마인드", role: "약속과 확정 기한이 다가오면 콕 찔러요", art: "dept-energy", face: "face-smile", auto: "notify",
 			rules: [["약속·확정 기한 하루 전 알림", "pref:remind"], ["찜한 매물이 바뀌면 알림", true]] }
 	];
 	var AG_TPL = [
@@ -2357,7 +2289,7 @@ function boot() {
 			(list.length ? "<div class=\"plist\">" + list.map(function(x) {
 				return "<button type=\"button\" class=\"aitem" + (x.read ? "" : " unread") + "\" data-act=\"read\" data-id=\"" + x.id + "\">" + AIMG(NFACE[x.kind] || "face-default") + "<span><b>" + esc(x.text) + "</b><small>" + esc(x.at) + " · " + esc(x.kind) + "</small></span>" + (x.read ? "" : "<i></i>") + "</button>";
 			}).join("") + "</div>" : "<div class=\"pop-empty\">" + AIMG("act-sleepy") + "받은 알림이 없어요</div>") +
-			"<div class=\"pop-foot\"><button type=\"button\" data-act=\"go\" data-to=\"notifs\">전체 알림 · 받는 기준</button><button type=\"button\" data-act=\"go\" data-to=\"agent\" data-id=\"0\" data-ag=\"remind\">" + AIMG("dept-energy") + "약속 알리미</button></div></div>";
+			"<div class=\"pop-foot\"><button type=\"button\" data-act=\"go\" data-to=\"notifs\">전체 알림 · 받는 기준</button><button type=\"button\" data-act=\"go\" data-to=\"agent\" data-id=\"0\" data-ag=\"remind\">" + AIMG("dept-energy") + "콕 리마인드</button></div></div>";
 	}
 	function ACARD(a) {
 		var s = agState()[a.id], job = agJob(a.id);
@@ -2367,11 +2299,11 @@ function boot() {
 	function APPROVE() {
 		var t = applyTarget();
 		if (!t || !agOn("deal") || S.agSkip === t.id) return "";
-		return "<div class=\"approve\">" + AIMG("face-wink") + "<div><p>" + esc(nick(t.owner)) + "님의 ‘" + esc(t.title) + "’ " + won(t.price) + " 매물에 거래 신청을 보낼까요?</p><small>거래 도우미 · 내 과목 대기중 매물 중 가장 싸요 · 보내기 전에는 항상 물어봐요</small><div class=\"acts\"><button type=\"button\" class=\"go\" data-act=\"ag-apply\" data-id=\"" + t.id + "\">신청 보내기</button><button type=\"button\" class=\"later\" data-act=\"ag-chat-say\" data-ag=\"deal\" data-v=\"신청 메시지 보여줘\">메시지 먼저 볼게요</button></div></div></div>";
+		return "<div class=\"approve\">" + AIMG("face-wink") + "<div><p>" + esc(nick(t.owner)) + "님의 ‘" + esc(t.title) + "’ " + won(t.price) + " 매물에 거래 신청을 보낼까요?</p><small>콕 거래 · 내 과목 대기중 매물 중 가장 싸요 · 보내기 전에는 항상 물어봐요</small><div class=\"acts\"><button type=\"button\" class=\"go\" data-act=\"ag-apply\" data-id=\"" + t.id + "\">신청 보내기</button><button type=\"button\" class=\"later\" data-act=\"ag-chat-say\" data-ag=\"deal\" data-v=\"신청 메시지 보여줘\">메시지 먼저 볼게요</button></div></div></div>";
 	}
 	SC.agents = {
 		scr: "v3",
-		name: "AI 도우미",
+		name: "AI에이전트",
 		nav: "agents",
 		r: function() {
 			var list = agAll(), on = list.filter(function(a) {
@@ -2379,17 +2311,17 @@ function boot() {
 			}), runs = agRuns(), busy = runs.filter(function(x) {
 				return x.st !== "done";
 			}).length;
-			return "<div class=\"aghead\">" + H1("AI 도우미") + BELL() + "</div><p class=\"agsub\">" + on.length + "개가 켜져 있어요 · 지금 " + busy + "개 일을 동시에 하는 중</p>" +
+			return "<div class=\"aghead\">" + H1("AI에이전트") + BELL() + "</div><p class=\"agsub\">" + on.length + "개가 켜져 있어요 · 지금 " + busy + "개 일을 동시에 하는 중</p>" +
 				"<button type=\"button\" class=\"askbar\" data-act=\"go\" data-to=\"chat\" data-id=\"0\" data-ag=\"team\"><span class=\"stack3\">" + on.slice(0, 3).map(function(a) {
 					return AIMG(a.face);
-				}).join("") + "</span><span class=\"t\"><b>도우미들과 채팅</b>물어보면 맞는 도우미가 대답해요</span><span class=\"send\">" + SVG("<path d=\"M4 5.500h14v9H9l-4 3.500v-3.500H4z\"/>") + "</span></button>" +
+				}).join("") + "</span><span class=\"t\"><b>콕 팀과 채팅</b>물어보면 맞는 에이전트가 대답해요</span><span class=\"send\">" + SVG("<path d=\"M4 5.500h14v9H9l-4 3.500v-3.500H4z\"/>") + "</span></button>" +
 				"<div class=\"agboard\"><div class=\"agboard-h\"><span class=\"live\"></span>지금 하는 일<small>각자 따로, 동시에</small></div>" + (runs.length ? runs.map(function(x) {
 					var a = agBy(x.ag);
 					return "<div class=\"agrun " + x.st + "\">" + AIMG(a.face) + "<div><b>" + esc(x.text) + "</b><small>" + esc(x.sub) + "</small>" + (x.st === "run" ? "<div class=\"agbar\"><i style=\"width:" + x.pct + "%\"></i></div>" : "") + "</div><span class=\"st\">" + (x.st === "run" ? x.pct + "%" : x.st === "done" ? "완료" : "확인 대기") + "</span></div>";
-				}).join("") : "<div class=\"empty\">" + AIMG("act-sleepy", "ms") + "<b>모든 도우미가 쉬는 중이에요</b><p class=\"small\">아래에서 하나를 켜 보세요.</p></div>") + "</div>" +
+				}).join("") : "<div class=\"empty\">" + AIMG("act-sleepy", "ms") + "<b>모든 에이전트가 쉬는 중이에요</b><p class=\"small\">아래에서 하나를 켜 보세요.</p></div>") + "</div>" +
 				APPROVE() +
-				"<div class=\"h1row\"><h2 class=\"h2\">내 도우미</h2><span class=\"small\">눌러서 맡길 일 바꾸기</span></div><div class=\"agrid\">" + list.map(ACARD).join("") + (S.agCustom.length < AG_TPL.length ? "<button type=\"button\" class=\"acard add\" data-act=\"ag-tpl\"><span class=\"plus\">+</span>새 도우미<small>템플릿에서 골라 만들기</small></button>" : "") + "</div>" +
-				"<p class=\"tiny\" style=\"text-align:center\">도우미는 내 수강 과목·게시글·거래 기록만 봐요. ‘자동 실행’이어도 거래 신청·약속 확정·매물 올리기는 항상 먼저 물어봐요. 금지 자료 차단(REQ-010)은 도우미를 꺼도 그대로 작동합니다.</p>";
+				"<div class=\"h1row\"><h2 class=\"h2\">내 에이전트</h2><span class=\"small\">눌러서 맡길 일 바꾸기</span></div><div class=\"agrid\">" + list.map(ACARD).join("") + (S.agCustom.length < AG_TPL.length ? "<button type=\"button\" class=\"acard add\" data-act=\"ag-tpl\"><span class=\"plus\">+</span>새 에이전트<small>템플릿에서 골라 만들기</small></button>" : "") + "</div>" +
+				"<p class=\"tiny\" style=\"text-align:center\">에이전트는 내 수강 과목·게시글·거래 기록만 봐요. ‘자동 실행’이어도 거래 신청·약속 확정·매물 올리기는 항상 먼저 물어봐요. 금지 자료 차단(REQ-010)은 에이전트를 꺼도 그대로 작동합니다.</p>";
 		}
 	};
 	function AGLOG(id) {
@@ -2410,7 +2342,7 @@ function boot() {
 	}
 	SC.agent = {
 		scr: "v3",
-		name: "도우미",
+		name: "에이전트",
 		nav: "agents",
 		r: function(p) {
 			var id = p.ag || "match", a = agBy(id), s = agState()[id];
@@ -2433,7 +2365,7 @@ function boot() {
 				}).join("") + "</div></div><p class=\"tiny\" style=\"text-align:center\">" + josa(a.name, "이", "가") + " 한 일은 모두 여기 기록에 남아요.</p>";
 		}
 	};
-	/* ───── 채팅: 팀 대화방(맞는 도우미가 대답) + 1:1 대화방 ───── */
+	/* ───── 채팅: 팀 대화방(맞는 에이전트가 대답) + 1:1 대화방 ───── */
 	var CCHIPS = {
 		team: ["내 과목 매물 있어?", "얼마에 팔면 돼?", "‘중간고사 족보.pdf’ 올려도 돼?", "다음 약속 언제야?", "제일 싼 걸로 신청해줘"],
 		match: ["내 과목 매물 있어?", "얼마에 팔면 돼?", "구해요 올려줘"],
@@ -2447,7 +2379,7 @@ function boot() {
 	function chatSeed(k) {
 		agState();
 		if (S.chat[k]) return;
-		if (k === "team") S.chat[k] = [{ from: "match", text: nick(S.me.id) + "님, 교재 도우미들이에요. 넷이 각자 맡은 일을 동시에 하고 있어요. 무엇이든 물어보면 맞는 도우미가 대답해요.", card: { type: "team" } }];
+		if (k === "team") S.chat[k] = [{ from: "match", text: nick(S.me.id) + "님, 콕 팀이에요. 넷이 각자 맡은 일을 동시에 하고 있어요. 무엇이든 물어보면 맞는 에이전트가 대답해요.", card: { type: "team" } }];
 		else {
 			var a = agBy(k), j = agJob(k);
 			S.chat[k] = [{ from: k, text: josa(a.name, "이에요", "예요") + ". " + a.role + "." + (j ? " 지금은 ‘" + j + "’ 하는 중이에요." : "") }];
@@ -2520,7 +2452,7 @@ function boot() {
 			case "thanks":
 				return [{ text: "언제든 불러 주세요. 하던 일은 계속하고 있을게요." }];
 			case "hello":
-				return k === "team" ? [{ text: "교재 도우미들이에요. 지금 이렇게 나눠서 일하고 있어요. 한 명을 누르면 따로 이야기할 수 있어요.", card: { type: "team" } }] : [{ text: josa(agBy(ag).name, "이에요", "예요") + ". " + agBy(ag).role + ".", chips: CCHIPS[k] }];
+				return k === "team" ? [{ text: "콕 팀이에요. 지금 이렇게 나눠서 일하고 있어요. 한 명을 누르면 따로 이야기할 수 있어요.", card: { type: "team" } }] : [{ text: josa(agBy(ag).name, "이에요", "예요") + ". " + agBy(ag).role + ".", chips: CCHIPS[k] }];
 			default:
 				return [{ text: "아직 그건 할 줄 몰라요. 이런 걸 물어봐 주세요.", chips: CCHIPS[k] || CCHIPS.team }];
 		}
@@ -2605,7 +2537,7 @@ function boot() {
 			}), who = team ? ons : [agBy(k)], th = S.chat[k], prev = null;
 			var h = "<div class=\"chathead\"><span class=\"stack3\">" + who.slice(0, 4).map(function(a) {
 				return AIMG(a.face);
-			}).join("") + "</span><span class=\"t\"><b>" + (team ? "교재 도우미" : agBy(k).name) + "</b><small><i></i>" + (team ? ons.length + "명이 일하는 중 · 물어보면 맞는 도우미가 대답해요" : esc(agJob(k) || agBy(k).role)) + "</small></span></div>";
+			}).join("") + "</span><span class=\"t\"><b>" + (team ? "콕 팀" : agBy(k).name) + "</b><small><i></i>" + (team ? ons.length + "명이 일하는 중 · 물어보면 맞는 에이전트가 대답해요" : esc(agJob(k) || agBy(k).role)) + "</small></span></div>";
 			th.forEach(function(m) {
 				if (m.from === "me") h += "<div class=\"cmsg me\"><div class=\"bubble\">" + esc(m.text) + "</div></div>";
 				else if (m.from === "sys") h += "<div class=\"cmsg sys\"><div class=\"bubble\">" + esc(m.text) + "</div>" + (m.chips ? "<div class=\"cchips\">" + m.chips.map(function(c) {
@@ -2626,7 +2558,7 @@ function boot() {
 			var k = p.ag || "team";
 			return "<div class=\"composer-wrap\"><div class=\"qchips\">" + (CCHIPS[k] || CCHIPS.team).map(function(c) {
 				return "<button type=\"button\" class=\"cchip\" data-act=\"chat-say\" data-v=\"" + esc(c) + "\">" + esc(c) + "</button>";
-			}).join("") + "</div><form data-form=\"chat\" novalidate class=\"composer\"><input id=\"f-msg\" name=\"msg\" type=\"text\" autocomplete=\"off\" placeholder=\"" + (k === "team" ? "도우미에게 물어보기" : agBy(k).name + "에게 물어보기") + "\" aria-label=\"메시지\"><button type=\"submit\" aria-label=\"보내기\">" + SVG("<path d=\"M4 11h13M12 5.500 17.500 11 12 16.500\"/>") + "</button></form></div>";
+			}).join("") + "</div><form data-form=\"chat\" novalidate class=\"composer\"><input id=\"f-msg\" name=\"msg\" type=\"text\" autocomplete=\"off\" placeholder=\"" + (k === "team" ? "콕 팀에게 물어보기" : agBy(k).name + "에게 물어보기") + "\" aria-label=\"메시지\"><button type=\"submit\" aria-label=\"보내기\">" + SVG("<path d=\"M4 11h13M12 5.500 17.500 11 12 16.500\"/>") + "</button></form></div>";
 		}
 	};
 	/* 탭 바 렌즈 애니메이션 · 스크롤하면 작아짐 · 손가락을 따라 움직임 */
@@ -3504,7 +3436,7 @@ function boot() {
 				var day = function(a) { return a.slice(0, a.lastIndexOf(" ")); }, tod = day(fmt(now())), lab = i === 0 || day(list[i - 1].at) !== day(x.at) ? (day(x.at) === tod ? "오늘" : day(x.at)) : "";
 				return (lab ? "<div class=\"dayl\">" + esc(lab) + "</div>" : "") + "<button type=\"button\" data-act=\"read\" data-id=\"" + x.id + "\"><span style=\"min-width:0\"><span class=\"" + (x.read ? "" : "unread") + "\">" + esc(x.text) + "</span><br><span class=\"small\">" + esc(x.at) + " · " + esc(x.kind) + "</span></span>" + (x.read ? "" : "<span class=\"dot\" aria-label=\"읽지 않음\"></span>") + "</button>";
 			}).join("") + "</div>";
-			h += "<p class=\"sec\">알림 받는 기준</p>" + (SKIN !== "0" ? "<button type=\"button\" class=\"linkbtn\" data-act=\"go\" data-to=\"agent\" data-ag=\"remind\" style=\"align-self:flex-start\">매칭 도우미·약속 알리미 규칙과 같은 설정이에요 ›</button>" : "") + "<div class=\"list prefs\">" + PREF("newpost", "내 과목에 새 매물이 올라오면", "수강 과목으로 등록한 과목의 교재 매물") + PREF("remind", "약속·확정 기한 하루 전 알림", "확정된 약속 일시, 수락 후 7일 확정 기한") + "<div><span class=\"grow\" style=\"min-width:0\"><span>거래 진행 · 운영 처리 알림</span><br><span class=\"small\">신청 · 수락 · 약속 · 완료, 신고 · 이의 결과 — 항상 받습니다 (REQ-043)</span></span>" + TAG("항상", "gray") + "</div></div>";
+			h += "<p class=\"sec\">알림 받는 기준</p>" + (SKIN !== "0" ? "<button type=\"button\" class=\"linkbtn\" data-act=\"go\" data-to=\"agent\" data-ag=\"remind\" style=\"align-self:flex-start\">콕 매칭·콕 리마인드 규칙과 같은 설정이에요 ›</button>" : "") + "<div class=\"list prefs\">" + PREF("newpost", "내 과목에 새 매물이 올라오면", "수강 과목으로 등록한 과목의 교재 매물") + PREF("remind", "약속·확정 기한 하루 전 알림", "확정된 약속 일시, 수락 후 7일 확정 기한") + "<div><span class=\"grow\" style=\"min-width:0\"><span>거래 진행 · 운영 처리 알림</span><br><span class=\"small\">신청 · 수락 · 약속 · 완료, 신고 · 이의 결과 — 항상 받습니다 (REQ-043)</span></span>" + TAG("항상", "gray") + "</div></div>";
 			return h + "<p class=\"tiny\">알림을 열면 읽음으로 바뀌어 새 알림 수에서 빠집니다. 다른 사람의 알림은 보이지 않습니다. 끈 기준의 알림은 만들어지지 않습니다.</p>";
 		}
 	};
@@ -3681,7 +3613,7 @@ function boot() {
 	function modal() {
 		var m = S.modal, p;
 		if (!m) return "";
-		if (m.t === "ag-tpl") return SHEET("새 도우미 만들기", "<p class=\"small\">템플릿을 고르면 바로 일을 시작해요. 맡길 과목과 자율 수준은 만든 뒤에 바꿀 수 있어요.</p>" + AG_TPL.filter(function(t) {
+		if (m.t === "ag-tpl") return SHEET("새 에이전트 만들기", "<p class=\"small\">템플릿을 고르면 바로 일을 시작해요. 맡길 과목과 자율 수준은 만든 뒤에 바꿀 수 있어요.</p>" + AG_TPL.filter(function(t) {
 			return S.agCustom.indexOf(t.id) < 0;
 		}).map(function(t) {
 			return "<button type=\"button\" class=\"agtpl\" data-act=\"ag-add\" data-ag=\"" + t.id + "\">" + AIMG(t.art) + "<span><b>" + t.name + "</b><small>" + t.role + "</small></span><span class=\"add\">+</span></button>";
@@ -3799,7 +3731,7 @@ function boot() {
 			items = items.filter(function(x) {
 				return x[0] !== "courses";
 			});
-			items.splice(3, 0, ["agents", "face", "도우미"]);
+			items.splice(3, 0, ["agents", "face", "AI에이전트"]);
 		}
 		var li = -1;
 		items.forEach(function(x, i) {
@@ -3979,9 +3911,9 @@ function boot() {
 		h += "<div class=\"gcard\"><h2>학교 마스코트 사용 규칙 (개선안 스타일에서만 표시)</h2><div class=\"gmas\">" + [["face-default", "기본", "앱 마크 · 알림 아이콘"], ["pose-jumper", "대학점퍼", "로그인 화면"], ["face-smile", "웃음", "홈 인사 · 내 과목 새 매물 있음"], ["pose-no", "안돼", "금지 자료 차단"], ["pose-heart", "하트", "약속 단계"], ["pose-best", "최고", "거래 완료 · 운영자 처리 끝"], ["face-surprised", "당황", "조건에 맞는 글 없음"], ["face-sad", "슬픔", "열 수 없는 글 · 거래 중단"], ["pose-read", "독서", "수강 과목 없음"], ["pose-polite", "공손", "거래 없음"]].map(function(m) {
 			return "<figure><img src=\"" + MASCOT[m[0]] + "\" alt=\"\"><figcaption>" + m[1] + "<small>" + m[2] + "</small></figcaption></figure>";
 		}).join("") + "</div><p class=\"gsmall\">표정·포즈마다 뜻을 하나로 고정하고, 한 화면에 하나만 씁니다. 매물 카드와 목록에는 넣지 않고, 화남 표정과 운동 포즈는 쓰지 않습니다. 색은 마스코트 파랑 #0057A7 · 남색 #162B49에 맞췄습니다.</p></div>";
-		h += "<div class=\"gcard\"><h2>v3 · AI 도우미</h2><div class=\"hrow\"><span>민지로 바로 열기</span>" + hb("도우미 탭", "v3-agents", c.s === "agents") + hb("도우미 채팅", "v3-chat", c.s === "chat") + hb("알림 팝업", "v3-pop", !!S.pop) + "</div><p class=\"gsmall\">매칭 도우미·거래 도우미·자료 검사·약속 알리미가 각자 일하고, 팀 채팅에 물으면 맞는 도우미가 대답합니다. 거래 신청은 ‘자동 실행’이어도 확인 카드로 먼저 묻습니다. 탭 바는 iOS 26 리퀴드 글라스 방식으로, 탭을 끌면 렌즈가 따라오고 아래로 스크롤하면 작아집니다. 모두 RTM v10 밖의 확장안입니다.</p></div>";
+		h += "<div class=\"gcard\"><h2>v3 · AI 에이전트 (공지콕 v7 구조)</h2><div class=\"hrow\"><span>민지로 바로 열기</span>" + hb("에이전트 탭", "v3-agents", c.s === "agents") + hb("콕 팀 채팅", "v3-chat", c.s === "chat") + hb("알림 팝업", "v3-pop", !!S.pop) + "</div><p class=\"gsmall\">콕 매칭·콕 거래·콕 검사·콕 리마인드가 각자 일하고, 팀 채팅에 물으면 맞는 에이전트가 대답합니다. 거래 신청은 ‘자동 실행’이어도 확인 카드로 먼저 묻습니다. 탭 바는 iOS 26 리퀴드 글라스 방식으로, 탭을 끌면 렌즈가 따라오고 아래로 스크롤하면 작아집니다. 모두 RTM v10 밖의 확장안입니다.</p></div>";
 		h += "<div class=\"gcard\"><h2>시연 계정</h2><p class=\"gsmall\">수강생 <code>minji@" + DOMAIN + "</code> <code>doyun@" + DOMAIN + "</code> 비밀번호 <code>demo1234</code><br>운영자 <code>op01</code> 비밀번호 <code>admin1234</code></p><p class=\"gsmall\">학교 도메인 <code>" + DOMAIN + "</code>은 시연용 예시입니다.</p></div>";
-		h += "<details><summary>알아둘 점</summary><ul><li>로그인 화면에는 시연 계정(민지, 운영자 op01)이 미리 채워져 있습니다. 지우고 다른 값을 넣어도 됩니다.</li><li>입력한 내용은 이 화면 안에서만 유지되고, 새로 고치면 처음으로 돌아갑니다.</li><li>메일 발송, 파일 저장, 결제는 실제로 일어나지 않습니다. 인증코드는 인증코드 입력 화면과 위 도우미에 표시됩니다.</li><li>과목·교재·게시글은 Figma 화면에 나온 예시만 넣었습니다.</li><li>Figma에 없는 추가: 로그인 없이 둘러보기, 하단 메뉴의 새 알림 점, 운영자 접속 기록, 기준 정보의 과목 목록, 이 도우미.</li><li>v2에서 더한 것: 학교 마스코트, 알림 받는 기준 토글(내 과목 새 매물 · 약속/기한 하루 전 리마인드), 약속·확정 기한 D-day, 홈과 내 거래의 ‘다가오는 약속’ 카드, 홈 요약 카드(대기중 매물·진행 중 거래·새 알림), 알림 ‘모두 읽음’과 오늘/이전 묶음, 알림을 누르면 관련 화면으로 이동, 잠금 화면의 ‘약속 리마인드’ 시나리오, 계정별 찜과 찜 매물 변경 알림(예약중·거래완료·대기중 복귀·가격 변경), 거래 후기 한 줄(판매자 카드에 횟수로 표시), 운영자 신고 처리 기한 D-day와 요약 카드(처리 목표 3일은 프로토타입 가정), 수강 과목의 ‘대기중 매물 n’ 배지, 구해요 글(같은 교재 매물이 올라오면 알림), 올리기 화면의 가격 참고선, 운영자 금지어 사전(바꾸면 바로 적용), 같은 글에 신고 3건이면 임시 숨김 + 운영자 알림. v3: AI 도우미 탭(매칭 도우미·거래 도우미·자료 검사·약속 알리미, 템플릿 3종), 도우미 채팅, 종 아이콘 알림 팝업, 리퀴드 글라스 탭 바. 개선안 스타일에서는 ‘수강 과목’ 탭 자리에 ‘도우미’가 들어가고, 수강 과목은 홈의 ‘수강 과목 관리’로 엽니다. 알림 기준과 D-day는 RTM v10에 없는 기능이라 발표 뒤 요구사항 반영을 검토합니다.</li><li>위쪽의 ‘개선안’은 정돈된 실용형(A안)입니다: 홈에만 브랜드 머리, 나머지 화면은 뒤로 가기 + 큰 제목, 게시글 상세의 표지·큰 가격·하단 고정 버튼, 거래 진행 단계(대기중 → 신청 → 예약중 → 거래완료), 상태 색 고정(대기중 초록 · 신청 파랑 · 예약중·접수 주황 · 완료 회색 · 숨김 빨강), 글자·버튼 크기 기준. ‘Figma 원안’은 Figma 프로토타입의 네이비 색과 카드 모양 그대로입니다.</li><li>‘Android / iOS’는 Figma의 두 벌 화면(iOS: 상태바 47pt, 탭바 83pt, 버튼 50pt)을 따라 기기 틀을 바꿉니다. 상태바 시각은 ‘시간 넘기기’를 따라 움직입니다.</li><li>거래 신청은 Figma 흐름 1 순서(팝업 → 신청 보내는 중 → 거래를 신청했습니다 → 팝업 닫힘 → 스낵바 → 신청 중)대로 진행됩니다.</li><li>교재 표지와 사진은 실제 책을 찍은 것이 아니라 화면 안에서 그린 그림입니다(교재·출판사·사람 이름은 예시). 매물을 올릴 때 직접 고른 사진은 그대로 표시됩니다.</li><li>좋아요(M-05)는 Figma 게시글 상세에 있으나 대응 요구사항이 확인되지 않아 화면 안에서만 표시되고 저장되지 않습니다.</li></ul></details>";
+		h += "<details><summary>알아둘 점</summary><ul><li>로그인 화면에는 시연 계정(민지, 운영자 op01)이 미리 채워져 있습니다. 지우고 다른 값을 넣어도 됩니다.</li><li>입력한 내용은 이 화면 안에서만 유지되고, 새로 고치면 처음으로 돌아갑니다.</li><li>메일 발송, 파일 저장, 결제는 실제로 일어나지 않습니다. 인증코드는 인증코드 입력 화면과 위 도우미에 표시됩니다.</li><li>과목·교재·게시글은 Figma 화면에 나온 예시만 넣었습니다.</li><li>Figma에 없는 추가: 로그인 없이 둘러보기, 하단 메뉴의 새 알림 점, 운영자 접속 기록, 기준 정보의 과목 목록, 이 도우미.</li><li>v2에서 더한 것: 학교 마스코트, 알림 받는 기준 토글(내 과목 새 매물 · 약속/기한 하루 전 리마인드), 약속·확정 기한 D-day, 홈과 내 거래의 ‘다가오는 약속’ 카드, 홈 요약 카드(대기중 매물·진행 중 거래·새 알림), 알림 ‘모두 읽음’과 오늘/이전 묶음, 알림을 누르면 관련 화면으로 이동, 잠금 화면의 ‘약속 리마인드’ 시나리오, 계정별 찜과 찜 매물 변경 알림(예약중·거래완료·대기중 복귀·가격 변경), 거래 후기 한 줄(판매자 카드에 횟수로 표시), 운영자 신고 처리 기한 D-day와 요약 카드(처리 목표 3일은 프로토타입 가정), 수강 과목의 ‘대기중 매물 n’ 배지, 구해요 글(같은 교재 매물이 올라오면 알림), 올리기 화면의 가격 참고선, 운영자 금지어 사전(바꾸면 바로 적용), 같은 글에 신고 3건이면 임시 숨김 + 운영자 알림. v3: AI에이전트 탭(콕 매칭·거래·검사·리마인드, 템플릿 3종), 에이전트 채팅, 종 아이콘 알림 팝업, 리퀴드 글라스 탭 바. 개선안 스타일에서는 ‘수강 과목’ 탭 자리에 ‘AI에이전트’가 들어가고, 수강 과목은 홈의 ‘수강 과목 관리’로 엽니다. 알림 기준과 D-day는 RTM v10에 없는 기능이라 발표 뒤 요구사항 반영을 검토합니다.</li><li>위쪽의 ‘개선안’은 정돈된 실용형(A안)입니다: 홈에만 브랜드 머리, 나머지 화면은 뒤로 가기 + 큰 제목, 게시글 상세의 표지·큰 가격·하단 고정 버튼, 거래 진행 단계(대기중 → 신청 → 예약중 → 거래완료), 상태 색 고정(대기중 초록 · 신청 파랑 · 예약중·접수 주황 · 완료 회색 · 숨김 빨강), 글자·버튼 크기 기준. ‘Figma 원안’은 Figma 프로토타입의 네이비 색과 카드 모양 그대로입니다.</li><li>‘Android / iOS’는 Figma의 두 벌 화면(iOS: 상태바 47pt, 탭바 83pt, 버튼 50pt)을 따라 기기 틀을 바꿉니다. 상태바 시각은 ‘시간 넘기기’를 따라 움직입니다.</li><li>거래 신청은 Figma 흐름 1 순서(팝업 → 신청 보내는 중 → 거래를 신청했습니다 → 팝업 닫힘 → 스낵바 → 신청 중)대로 진행됩니다.</li><li>교재 표지와 사진은 실제 책을 찍은 것이 아니라 화면 안에서 그린 그림입니다(교재·출판사·사람 이름은 예시). 매물을 올릴 때 직접 고른 사진은 그대로 표시됩니다.</li><li>좋아요(M-05)는 Figma 게시글 상세에 있으나 대응 요구사항이 확인되지 않아 화면 안에서만 표시되고 저장되지 않습니다.</li></ul></details>";
 		guide.innerHTML = h;
 	}
 	function collect(form) {
